@@ -4,19 +4,30 @@
 
 # Huillín
 
-**Cliente BitTorrent ligero para Windows, escrito en Rust.**
+**Cliente BitTorrent ligero para Windows, macOS y Linux, escrito en Rust.**
 Rápido, sin publicidad y con una interfaz limpia.
 
 [![Última versión](https://img.shields.io/github/v/release/storo/huillin?style=flat-square&color=2ea44f)](https://github.com/storo/huillin/releases/latest)
 [![Descargas](https://img.shields.io/github/downloads/storo/huillin/total?style=flat-square)](https://github.com/storo/huillin/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/storo/huillin/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/storo/huillin/actions/workflows/ci.yml)
 [![Licencia MIT](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
-![Plataforma](https://img.shields.io/badge/plataforma-Windows%2010%20%7C%2011-0078d4?style=flat-square)
+![Plataforma](https://img.shields.io/badge/plataforma-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?style=flat-square)
 ![Rust](https://img.shields.io/badge/hecho%20con-Rust-dea584?style=flat-square&logo=rust&logoColor=white)
 
 [**⬇ Descargar**](https://github.com/storo/huillin/releases/latest) · [Características](#características) · [Instalación](#instalación) · [Uso](#uso) · [Compilar](#compilar-desde-el-código-fuente)
 
 </div>
+
+![Huillín: lista de torrents](docs/ui-main.png)
+
+<details>
+<summary><b>Más capturas</b></summary>
+
+| Archivos de un torrent | Ajustes |
+| --- | --- |
+| ![Selección de archivos](docs/ui-files.png) | ![Ajustes](docs/ui-settings.png) |
+
+</details>
 
 ---
 
@@ -27,7 +38,7 @@ Rápido, sin publicidad y con una interfaz limpia.
 - **Cifrado de protocolo (MSE)** — configurable desde la interfaz.
 - **Límites de velocidad** — de subida y de bajada.
 - **Portapapeles inteligente** — añade automáticamente los magnets que copies (opción desactivable en Ajustes).
-- **App de escritorio nativa** — ventana propia (WebView2), sin navegador ni consola.
+- **App de escritorio nativa** — ventana propia (WebView2 / WKWebView / WebKitGTK), sin navegador ni consola.
 - **Bandeja del sistema** — cierra la ventana y las descargas siguen; clic en el icono para volver.
 - **Instancia única** — abrir un `.torrent` o magnet con Huillín ya abierto lo añade a esa misma ventana.
 - **Asociación de archivos** — `.torrent` y `magnet:` se abren con Huillín (opcional).
@@ -41,13 +52,17 @@ Descarga la última versión desde la página de [**Releases**](https://github.c
 | Archivo | Descripción |
 | --- | --- |
 | `Huillin-Setup-x.y.z.exe` | **Instalador** (recomendado). Acceso directo en el menú Inicio y asociación de `.torrent`/magnet opcional. No requiere permisos de administrador. |
-| `Huillin-x.y.z-portable.zip` | Versión portable: descomprime y ejecuta `huillin.exe`. |
+| `Huillin-x.y.z-portable.zip` | Versión portable para Windows: descomprime y ejecuta `huillin.exe`. |
+| `Huillin-x.y.z-macos-aarch64.zip` / `-x86_64.zip` | **macOS** (Apple Silicon / Intel): descomprime y arrastra `Huillin.app` a Aplicaciones. |
+| `Huillin-x.y.z-linux-x86_64.tar.gz` | **Linux**: binario con `.desktop` e icono. |
 | `SHA256SUMS.txt` | Sumas de verificación de los archivos anteriores. |
 
 ### Requisitos
 
-- Windows 10 o 11 (64 bits).
-- [Microsoft WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/): viene incluido en Windows 11 y en Windows 10 actualizado. El instalador avisa si falta.
+- **Windows** 10 u 11 (64 bits).
+- **macOS** 11 o superior. La app está firmada solo ad-hoc: la primera vez, clic derecho → *Abrir* (o `xattr -dr com.apple.quarantine Huillin.app`).
+- **Linux** (x86_64) con `webkit2gtk-4.1`, `gtk3`, `libxdo` y `libayatana-appindicator3` (en Debian/Ubuntu: `sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0 libxdo3 libayatana-appindicator3-1`). Para el portapapeles inteligente, `wl-clipboard` o `xclip`.
+- Windows: [Microsoft WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/): viene incluido en Windows 11 y en Windows 10 actualizado. El instalador avisa si falta.
 - **No necesitas Rust ni Cargo** para usar Huillín.
 
 > **Aviso de SmartScreen:** como el instalador aún no está firmado digitalmente, Windows puede mostrar «Windows protegió su PC». Pulsa *Más información → Ejecutar de todas formas*. Puedes comprobar la integridad del archivo con `SHA256SUMS.txt`.
@@ -63,7 +78,7 @@ Descarga la última versión desde la página de [**Releases**](https://github.c
 ```text
 huillin [archivo.torrent | magnet:?xt=...]...   Abre la app y añade los torrents indicados
 huillin --web                                    Modo web: sin ventana, abre el panel en el navegador
-huillin --register                               Asocia .torrent y magnet: con Huillín (usuario actual)
+huillin --register                               Asocia .torrent y magnet: con Huillín (usuario actual; Windows y Linux)
 huillin --unregister                             Elimina esa asociación
 ```
 
@@ -78,13 +93,17 @@ huillin --unregister                             Elimina esa asociación
 
 - Panel interno: `http://127.0.0.1:8088` (o el siguiente libre hasta el `8119`), solo accesible desde tu equipo.
 - Puerto BitTorrent: el primer libre entre `6881` y `6999`. Abre/redirige ese puerto en tu router para mejorar la conectividad.
-- Estado y lista de torrents: `%APPDATA%\RTorrent`.
+- Estado y lista de torrents: `%APPDATA%\RTorrent` (Windows), `~/Library/Application Support/Huillin` (macOS), `~/.local/share/huillin` (Linux).
 
 ## Compilar desde el código fuente
 
 Solo es necesario si quieres contribuir o probar cambios.
 
-Requisitos: [Rust](https://www.rust-lang.org/tools/install) estable y Windows con WebView2.
+Requisitos: [Rust](https://www.rust-lang.org/tools/install) estable. En Linux, además:
+
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev libayatana-appindicator3-dev
+```
 
 ```bash
 git clone https://github.com/storo/huillin.git
@@ -118,7 +137,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-El workflow compila, genera instalador y zip portable, calcula los checksums y los adjunta a la Release.
+El workflow compila para Windows, macOS (Intel y Apple Silicon) y Linux, genera instalador, zips y tarball, calcula los checksums y los adjunta a la Release.
 
 ## Arquitectura
 

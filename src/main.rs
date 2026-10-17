@@ -15,7 +15,7 @@ mod web;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use tao::dpi::LogicalSize;
-use tao::event::{Event, WindowEvent};
+use tao::event::{Event, StartCause, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
 use tao::window::{Icon, WindowBuilder};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem};
@@ -47,7 +47,38 @@ fn add_arg(session: &session::Session, arg: &str) {
     }
 }
 
-/// Registra (o quita) .torrent y magnet: para el usuario actual (HKCU).
+/// Registra (o quita) .torrent y magnet: para el usuario actual.
+#[cfg(target_os = "linux")]
+fn set_associations(register: bool) {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let dir = std::path::PathBuf::from(home).join(".local/share/applications");
+    let file = dir.join("huillin.desktop");
+    let run = |cmd: &str, args: &[&str]| {
+        let _ = std::process::Command::new(cmd).args(args).output();
+    };
+    if register {
+        let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default();
+        let _ = std::fs::create_dir_all(&dir);
+        let entry = format!(
+            "[Desktop Entry]\nType=Application\nName=Huillín\nComment=Cliente BitTorrent\nExec=\"{exe}\" %U\nTerminal=false\nCategories=Network;FileTransfer;P2P;\nMimeType=application/x-bittorrent;x-scheme-handler/magnet;\n"
+        );
+        if std::fs::write(&file, entry).is_ok() {
+            run("update-desktop-database", &[&dir.display().to_string()]);
+            run("xdg-mime", &["default", "huillin.desktop", "application/x-bittorrent"]);
+            run("xdg-mime", &["default", "huillin.desktop", "x-scheme-handler/magnet"]);
+        }
+    } else {
+        let _ = std::fs::remove_file(&file);
+        run("update-desktop-database", &[&dir.display().to_string()]);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_associations(_register: bool) {
+    eprintln!("En macOS la asociación se configura desde Finder (Obtener información → Abrir con).");
+}
+
+#[cfg(windows)]
 fn set_associations(register: bool) {
     let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default();
     let reg = |args: &[&str]| {
@@ -70,6 +101,24 @@ fn set_associations(register: bool) {
     reg(&["add", &format!(r"{c}\magnet"), "/v", "URL Protocol", "/d", "", "/f"]);
     reg(&["add", &format!(r"{c}\magnet\DefaultIcon"), "/ve", "/d", &icon, "/f"]);
     reg(&["add", &format!(r"{c}\magnet\shell\open\command"), "/ve", "/d", &cmd, "/f"]);
+}
+
+fn open_url(url: &str) {
+    #[cfg(windows)]
+    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg(url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+}
+
+/// Datos de WebView2 fuera del ejecutable (en macOS/Linux se usa la ubicación por defecto).
+fn webview_data_dir() -> Option<std::path::PathBuf> {
+    if cfg!(windows) {
+        std::env::var_os("LOCALAPPDATA").map(|p| std::path::PathBuf::from(p).join("Huillin").join("webview"))
+    } else {
+        None
+    }
 }
 
 fn main() {
@@ -125,7 +174,7 @@ fn main() {
     if web_mode {
         println!("Ctrl+C para salir");
         if std::env::var("HUILLIN_NO_BROWSER").is_err() && std::env::var("RTORRENT_NO_BROWSER").is_err() {
-            let _ = std::process::Command::new("cmd").args(["/C", "start", "", &url]).spawn();
+            open_url(&url);
         }
         let s_ipc = session.clone();
         let h = handle.clone();
@@ -164,13 +213,16 @@ fn main() {
         .build(&event_loop)
         .expect("ventana");
 
-    // Datos de WebView2 en %LOCALAPPDATA% en vez de junto al ejecutable.
-    let data_dir = std::env::var_os("LOCALAPPDATA").map(|p| std::path::PathBuf::from(p).join("Huillin").join("webview"));
-    let mut ctx = WebContext::new(data_dir);
-    let _webview = WebViewBuilder::new_with_web_context(&mut ctx)
-        .with_url(&url)
-        .build(&window)
-        .expect("webview (¿WebView2 instalado?)");
+    let mut ctx = WebContext::new(webview_data_dir());
+    let builder = WebViewBuilder::new_with_web_context(&mut ctx).with_url(&url);
+    #[cfg(not(target_os = "linux"))]
+    let _webview = builder.build(&window).expect("webview (¿WebView2 instalado?)");
+    // En Linux se usa GTK (funciona en X11 y Wayland).
+    #[cfg(target_os = "linux")]
+    let _webview = {
+        use tao::platform::unix::WindowExtUnix;
+        builder.build_gtk(window.default_vbox().expect("gtk vbox")).expect("webview (¿WebKitGTK instalado?)")
+    };
 
     // Bandeja del sistema
     let menu = Menu::new();
@@ -184,7 +236,8 @@ fn main() {
             tb = tb.with_icon(i);
         }
     }
-    let _tray = tb.build().ok();
+    let mut tb = Some(tb);
+    let mut _tray = None;
     let p = proxy.clone();
     MenuEvent::set_event_handler(Some(move |e: MenuEvent| {
         if e.id == id_show {
@@ -203,6 +256,10 @@ fn main() {
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Wait;
         match event {
+            // La bandeja se crea con el bucle ya en marcha (requisito de macOS).
+            Event::NewEvents(StartCause::Init) => {
+                _tray = tb.take().and_then(|b| b.build().ok());
+            }
             // Cerrar la ventana la oculta en la bandeja; la descarga sigue.
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => window.set_visible(false),
             Event::UserEvent(UserEvent::Show) => {
