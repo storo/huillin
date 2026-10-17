@@ -221,6 +221,7 @@ fn main() {
     #[cfg(target_os = "linux")]
     let _webview = {
         use tao::platform::unix::WindowExtUnix;
+        use wry::WebViewBuilderExtUnix;
         builder.build_gtk(window.default_vbox().expect("gtk vbox")).expect("webview (¿WebKitGTK instalado?)")
     };
 
