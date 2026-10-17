@@ -1,6 +1,6 @@
 # Huillín
 
-Cliente BitTorrent ligero escrito en Rust, con panel web local.
+Cliente BitTorrent ligero escrito en Rust. Se ejecuta como app de escritorio (ventana nativa con WebView2) y también puede usarse como panel web local.
 
 ## Características
 
@@ -9,12 +9,16 @@ Cliente BitTorrent ligero escrito en Rust, con panel web local.
 - Cifrado de protocolo (MSE)
 - Límite de velocidad
 - Detección de magnets copiados al portapapeles (Windows)
-- Panel web en `http://127.0.0.1:8088` (o el siguiente puerto libre hasta 8119)
+- Ventana nativa de escritorio (WebView2) con icono propio y sin consola
+- Bandeja del sistema: cerrar la ventana la oculta y las descargas siguen; clic en el icono la muestra, menú "Salir" cierra de verdad
+- Instancia única: abrir un `.torrent` o magnet con la app ya abierta lo añade a esa instancia
+- Asociación de `.torrent` y `magnet:` (por usuario): `huillin --register` / `huillin --unregister`
+- Modo web opcional: `huillin --web` (o `HUILLIN_WEB=1`) abre el panel en `http://127.0.0.1:8088` (o el siguiente puerto libre hasta 8119)
 
 ## Requisitos
 
 - [Rust](https://www.rust-lang.org/tools/install) (edición 2021)
-- Windows (el portapapeles y la apertura automática del navegador usan APIs de Windows)
+- Windows 10/11 con WebView2 Runtime (incluido en Windows 11)
 
 ## Compilar y ejecutar
 
