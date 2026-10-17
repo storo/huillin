@@ -1,39 +1,153 @@
+<div align="center">
+
+<img src="ui/logo.png" alt="Huillín" width="140">
+
 # Huillín
 
-Cliente BitTorrent ligero escrito en Rust. Se ejecuta como app de escritorio (ventana nativa con WebView2) y también puede usarse como panel web local.
+**Cliente BitTorrent ligero para Windows, escrito en Rust.**
+Rápido, sin publicidad y con una interfaz limpia.
+
+[![Última versión](https://img.shields.io/github/v/release/storo/huillin?style=flat-square&color=2ea44f)](https://github.com/storo/huillin/releases/latest)
+[![Descargas](https://img.shields.io/github/downloads/storo/huillin/total?style=flat-square)](https://github.com/storo/huillin/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/storo/huillin/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/storo/huillin/actions/workflows/ci.yml)
+[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-blue?style=flat-square)](LICENSE)
+![Plataforma](https://img.shields.io/badge/plataforma-Windows%2010%20%7C%2011-0078d4?style=flat-square)
+![Rust](https://img.shields.io/badge/hecho%20con-Rust-dea584?style=flat-square&logo=rust&logoColor=white)
+
+[**⬇ Descargar**](https://github.com/storo/huillin/releases/latest) · [Características](#características) · [Instalación](#instalación) · [Uso](#uso) · [Compilar](#compilar-desde-el-código-fuente)
+
+</div>
+
+---
 
 ## Características
 
-- Archivos `.torrent` y enlaces magnet
-- DHT y trackers
-- Cifrado de protocolo (MSE)
-- Límite de velocidad
-- Detección de magnets copiados al portapapeles (Windows)
-- Ventana nativa de escritorio (WebView2) con icono propio y sin consola
-- Bandeja del sistema: cerrar la ventana la oculta y las descargas siguen; clic en el icono la muestra, menú "Salir" cierra de verdad
-- Instancia única: abrir un `.torrent` o magnet con la app ya abierta lo añade a esa instancia
-- Asociación de `.torrent` y `magnet:` (por usuario): `huillin --register` / `huillin --unregister`
-- Modo web opcional: `huillin --web` (o `HUILLIN_WEB=1`) abre el panel en `http://127.0.0.1:8088` (o el siguiente puerto libre hasta 8119)
+- **Torrents y magnets** — añade archivos `.torrent` o enlaces `magnet:`.
+- **Red completa** — DHT y trackers para encontrar peers.
+- **Cifrado de protocolo (MSE)** — configurable desde la interfaz.
+- **Límites de velocidad** — de subida y de bajada.
+- **Portapapeles inteligente** — añade automáticamente los magnets que copies (opción desactivable en Ajustes).
+- **App de escritorio nativa** — ventana propia (WebView2), sin navegador ni consola.
+- **Bandeja del sistema** — cierra la ventana y las descargas siguen; clic en el icono para volver.
+- **Instancia única** — abrir un `.torrent` o magnet con Huillín ya abierto lo añade a esa misma ventana.
+- **Asociación de archivos** — `.torrent` y `magnet:` se abren con Huillín (opcional).
+- **Ligero** — un solo ejecutable, sin servicios ni dependencias extra.
+- **Modo web opcional** — el mismo panel disponible en el navegador (`--web`).
 
-## Requisitos
+## Instalación
 
-- [Rust](https://www.rust-lang.org/tools/install) (edición 2021)
-- Windows 10/11 con WebView2 Runtime (incluido en Windows 11)
+Descarga la última versión desde la página de [**Releases**](https://github.com/storo/huillin/releases/latest):
 
-## Compilar y ejecutar
+| Archivo | Descripción |
+| --- | --- |
+| `Huillin-Setup-x.y.z.exe` | **Instalador** (recomendado). Acceso directo en el menú Inicio y asociación de `.torrent`/magnet opcional. No requiere permisos de administrador. |
+| `Huillin-x.y.z-portable.zip` | Versión portable: descomprime y ejecuta `huillin.exe`. |
+| `SHA256SUMS.txt` | Sumas de verificación de los archivos anteriores. |
+
+### Requisitos
+
+- Windows 10 o 11 (64 bits).
+- [Microsoft WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/): viene incluido en Windows 11 y en Windows 10 actualizado. El instalador avisa si falta.
+- **No necesitas Rust ni Cargo** para usar Huillín.
+
+> **Aviso de SmartScreen:** como el instalador aún no está firmado digitalmente, Windows puede mostrar «Windows protegió su PC». Pulsa *Más información → Ejecutar de todas formas*. Puedes comprobar la integridad del archivo con `SHA256SUMS.txt`.
+
+## Uso
+
+1. Abre Huillín desde el menú Inicio.
+2. Arrastra un `.torrent`, pega un magnet o haz doble clic en un archivo `.torrent` (si activaste la asociación).
+3. Cierra la ventana para enviarlo a la bandeja; para salir del todo usa clic derecho en el icono → **Salir**.
+
+### Línea de comandos
+
+```text
+huillin [archivo.torrent | magnet:?xt=...]...   Abre la app y añade los torrents indicados
+huillin --web                                    Modo web: sin ventana, abre el panel en el navegador
+huillin --register                               Asocia .torrent y magnet: con Huillín (usuario actual)
+huillin --unregister                             Elimina esa asociación
+```
+
+### Variables de entorno
+
+| Variable | Efecto |
+| --- | --- |
+| `HUILLIN_WEB=1` | Equivale a `--web`. |
+| `HUILLIN_NO_BROWSER=1` | En modo web, no abre el navegador automáticamente. |
+
+### Puertos y datos
+
+- Panel interno: `http://127.0.0.1:8088` (o el siguiente libre hasta el `8119`), solo accesible desde tu equipo.
+- Puerto BitTorrent: el primer libre entre `6881` y `6999`. Abre/redirige ese puerto en tu router para mejorar la conectividad.
+- Estado y lista de torrents: `%APPDATA%\RTorrent`.
+
+## Compilar desde el código fuente
+
+Solo es necesario si quieres contribuir o probar cambios.
+
+Requisitos: [Rust](https://www.rust-lang.org/tools/install) estable y Windows con WebView2.
 
 ```bash
+git clone https://github.com/storo/huillin.git
+cd huillin
 cargo run --release
 ```
 
-También puedes pasar torrents o magnets como argumentos:
+Con argumentos:
 
 ```bash
 cargo run --release -- archivo.torrent "magnet:?xt=urn:btih:..."
 ```
 
-Para que no se abra el navegador automáticamente, define `HUILLIN_NO_BROWSER=1`.
+### Generar el instalador
+
+Con [Inno Setup 6](https://jrsoftware.org/isinfo.php) instalado:
+
+```bash
+cargo build --release
+iscc /DAppVersion=0.1.0 installer\huillin.iss
+```
+
+El instalador queda en `dist\`.
+
+### Publicar una versión
+
+Las versiones se construyen solas en GitHub Actions al subir un tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+El workflow compila, genera instalador y zip portable, calcula los checksums y los adjunta a la Release.
+
+## Arquitectura
+
+```text
+┌───────────────────────────── huillin.exe ─────────────────────────────┐
+│  ventana nativa (tao + wry/WebView2)  ◄── bandeja del sistema         │
+│        │  http://127.0.0.1:8088                                        │
+│        ▼                                                               │
+│  servidor local (axum) ── UI embebida (ui/index.html)                  │
+│        │                                                               │
+│        ▼                                                               │
+│  motor BitTorrent (tokio): sesión · torrent · DHT · trackers · MSE     │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+| Módulo | Función |
+| --- | --- |
+| `session.rs` | Gestión de torrents, estado persistente, límites |
+| `torrent.rs` | Descarga/subida por torrent, peers, piezas |
+| `dht.rs`, `tracker.rs` | Descubrimiento de peers |
+| `mse.rs` | Cifrado de protocolo |
+| `storage.rs` | Lectura/escritura de archivos en disco |
+| `web.rs` | API local y servidor de la interfaz |
+| `main.rs` | Ventana, bandeja, instancia única, línea de comandos |
+
+## Uso responsable
+
+Huillín es una herramienta neutral de transferencia de archivos. Úsala solo para contenido que tengas derecho a descargar y compartir.
 
 ## Licencia
 
-[MIT](LICENSE)
+[MIT](LICENSE) © storo
