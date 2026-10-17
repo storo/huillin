@@ -1,0 +1,14 @@
+name: Proponer una mejora
+description: Una idea para Huillín
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: ¿Qué te gustaría que hiciera?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: ¿Qué problema resuelve?
