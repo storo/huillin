@@ -1,0 +1,19 @@
+﻿[package]
+name = "huillin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha1 = "0.10"
+rand = "0.8"
+hex = "0.4"
+num-bigint = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+

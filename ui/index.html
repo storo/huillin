@@ -1,0 +1,1075 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Huillín</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<style>
+  :root {
+    --bg: #f4f5f8; --surface: #ffffff; --surface-2: #eef0f4; --text: #131821; --muted: #647084; --line: #e2e5eb;
+    --accent: #3b6df6; --accent-soft: rgba(59,109,246,.11); --accent-text: #ffffff;
+    --ok: #12a05c; --ok-soft: rgba(18,160,92,.12); --warn: #c27406; --warn-soft: rgba(194,116,6,.13);
+    --err: #d83a3a; --err-soft: rgba(216,58,58,.11); --idle: #7b8798; --idle-soft: rgba(123,135,152,.15);
+    --hover: rgba(19,24,33,.045); --select: rgba(59,109,246,.09); --shadow: 0 8px 28px rgba(15,23,42,.16);
+    --radius: 10px;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1015; --surface: #151a21; --surface-2: #1c222b; --text: #e8ebf0; --muted: #8894a6; --line: #262d38;
+    --accent: #6a93ff; --accent-soft: rgba(106,147,255,.14); --accent-text: #0b1020;
+    --ok: #3fcf85; --ok-soft: rgba(63,207,133,.13); --warn: #e8a63a; --warn-soft: rgba(232,166,58,.14);
+    --err: #ff6b6b; --err-soft: rgba(255,107,107,.14); --idle: #8593a6; --idle-soft: rgba(133,147,166,.16);
+    --hover: rgba(255,255,255,.05); --select: rgba(106,147,255,.14); --shadow: 0 10px 34px rgba(0,0,0,.5);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1015; --surface: #151a21; --surface-2: #1c222b; --text: #e8ebf0; --muted: #8894a6; --line: #262d38;
+      --accent: #6a93ff; --accent-soft: rgba(106,147,255,.14); --accent-text: #0b1020;
+      --ok: #3fcf85; --ok-soft: rgba(63,207,133,.13); --warn: #e8a63a; --warn-soft: rgba(232,166,58,.14);
+      --err: #ff6b6b; --err-soft: rgba(255,107,107,.14); --idle: #8593a6; --idle-soft: rgba(133,147,166,.16);
+      --hover: rgba(255,255,255,.05); --select: rgba(106,147,255,.14); --shadow: 0 10px 34px rgba(0,0,0,.5);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); overflow: hidden;
+    font: 13.5px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100vh; height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ic { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .num { font-variant-numeric: tabular-nums; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- botones ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 13px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; white-space: nowrap;
+    transition: background .12s, border-color .12s, transform .06s;
+  }
+  .btn:hover:not(:disabled) { background: var(--surface-2); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:disabled { opacity: .42; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  .btn.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+  .btn.danger:hover:not(:disabled) { color: var(--err); border-color: var(--err); background: var(--err-soft); }
+  .btn.danger.solid { background: var(--err); border-color: var(--err); color: #fff; font-weight: 600; }
+  .btn.danger.solid:hover { background: var(--err); filter: brightness(1.08); }
+  .btn.ghost { background: transparent; border-color: transparent; }
+  .btn.ghost:hover:not(:disabled) { background: var(--hover); }
+  .btn.sq { width: 34px; padding: 0; }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
+  .btn.sm.sq { width: 28px; padding: 0; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field > span, .field > label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .input {
+    width: 100%; height: 34px; padding: 0 11px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  textarea.input { height: auto; padding: 9px 11px; resize: vertical; min-height: 92px; line-height: 1.5; }
+  .input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .check { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+
+  /* ---------- barra superior ---------- */
+  .top { display: flex; align-items: center; gap: 14px; padding: 9px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: .1px; min-width: 200px; }
+  .logo { width: 34px; height: 34px; flex: none; } .logo img { display: block; width: 100%; height: 100%; border-radius: 9px; }
+  .search { position: relative; flex: 1 1 360px; max-width: 520px; margin: 0 auto; }
+  .search .ic { position: absolute; left: 11px; top: 8.5px; color: var(--muted); pointer-events: none; }
+  .search .input { padding-left: 35px; padding-right: 38px; background: var(--surface-2); border-color: transparent; }
+  .search .input:focus { background: var(--surface); border-color: var(--accent); }
+  .search kbd { position: absolute; right: 9px; top: 7px; font: 11px/1 ui-monospace, Consolas, monospace; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; background: var(--surface); pointer-events: none; }
+  .search .input:focus ~ kbd, .search .input:not(:placeholder-shown) ~ kbd { display: none; }
+  .top-actions { display: flex; gap: 4px; min-width: 200px; justify-content: flex-end; }
+
+  /* ---------- estructura ---------- */
+  .shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 0; }
+  .side { display: flex; flex-direction: column; gap: 4px; padding: 14px 12px; overflow: auto; border-right: 1px solid var(--line); background: var(--surface); }
+  .side h2 { margin: 8px 10px 6px; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
+  .nav { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 10px; background: none; border: 0; border-radius: 8px; cursor: pointer; text-align: left; color: var(--muted); }
+  .nav:hover { background: var(--hover); color: var(--text); }
+  .nav[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .nav .lbl { flex: 1; }
+  .nav .cnt { font-size: 12px; min-width: 22px; text-align: center; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); color: var(--muted); font-weight: 600; }
+  .nav[aria-current="true"] .cnt { background: var(--accent); color: var(--accent-text); }
+  .nav .cnt.zero { opacity: .55; }
+  .speed-card { margin-top: auto; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
+  .speed-card .legend { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
+  .speed-card .legend b { display: block; font-size: 15px; font-weight: 650; }
+  .speed-card .legend span { color: var(--muted); display: flex; align-items: center; gap: 5px; }
+  .speed-card .legend i { width: 8px; height: 8px; border-radius: 3px; display: inline-block; }
+  .legend .d i { background: var(--accent); } .legend .u i { background: var(--ok); }
+  canvas#graph { width: 100%; height: 74px; display: block; }
+  .speed-card .peak { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .content { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; position: relative; }
+  .bar-actions { display: flex; align-items: center; gap: 8px; padding: 12px 16px; flex-wrap: wrap; }
+  .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+  .count { margin-left: auto; color: var(--muted); font-size: 12.5px; }
+
+  /* ---------- tabla ---------- */
+  .tablewrap { overflow: auto; margin: 0 16px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); position: relative; outline-offset: -2px; }
+  .grid { min-width: 1150px; --cols: minmax(190px, 4fr) 82px minmax(120px, 2fr) 122px 90px 84px 74px 92px 58px 88px; }
+  .row { display: grid; grid-template-columns: var(--cols); gap: 12px; align-items: center; padding: 0 14px; min-height: 58px; border-top: 1px solid var(--line); position: relative; }
+  .row.head { position: sticky; top: 0; z-index: 3; min-height: 38px; border-top: 0; background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; color: var(--muted); }
+  .row.head > div { display: flex; align-items: center; gap: 4px; user-select: none; }
+  .row.head .sortable { cursor: pointer; }
+  .row.head .sortable:hover { color: var(--text); }
+  .row.head .sortable[aria-sort="ascending"]::after { content: "▲"; font-size: 8px; color: var(--accent); }
+  .row.head .sortable[aria-sort="descending"]::after { content: "▼"; font-size: 8px; color: var(--accent); }
+  .row.head .sortable[aria-sort]:not([aria-sort="none"]) { color: var(--text); }
+  .row.item { cursor: default; }
+  .row.item:hover { background: var(--hover); }
+  .row.item.sel { background: var(--select); }
+  .row.item.sel::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+  .c-r { justify-content: flex-end; text-align: right; }
+  .row > .num { color: var(--muted); white-space: nowrap; }
+  .row > .num.on { color: var(--text); font-weight: 550; }
+  .c-meta { display: none; }
+
+  .c-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .tile { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--idle-soft); color: var(--idle); }
+  .tile.downloading { background: var(--accent-soft); color: var(--accent); }
+  .tile.seeding { background: var(--ok-soft); color: var(--ok); }
+  .tile.checking, .tile.metadata { background: var(--warn-soft); color: var(--warn); }
+  .tile.error { background: var(--err-soft); color: var(--err); }
+  .tile.done { background: var(--ok-soft); color: var(--ok); }
+  .nm { min-width: 0; }
+  .nm b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nm small { display: block; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+
+  .prog { display: flex; align-items: center; gap: 9px; }
+  .bar { flex: 1; height: 7px; border-radius: 99px; background: var(--surface-2); overflow: hidden; position: relative; }
+  .bar i { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width .5s ease; }
+  .bar.seeding i, .bar.done i { background: var(--ok); }
+  .bar.paused i, .bar.metadata i { background: var(--idle); }
+  .bar.checking i { background: var(--warn); }
+  .bar.error i { background: var(--err); }
+  .bar.downloading i { background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.28), transparent); background-size: 60px 100%; background-repeat: no-repeat; animation: sheen 1.8s linear infinite; background-color: var(--accent); }
+  @keyframes sheen { from { background-position: -60px 0; } to { background-position: 400px 0; } }
+  .pct { width: 46px; text-align: right; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--idle-soft); color: var(--idle); white-space: nowrap; }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.downloading { background: var(--accent-soft); color: var(--accent); }
+  .pill.downloading::before { animation: pulse 1.4s ease-in-out infinite; }
+  .pill.seeding, .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.checking, .pill.metadata { background: var(--warn-soft); color: var(--warn); }
+  .pill.error { background: var(--err-soft); color: var(--err); }
+  @keyframes pulse { 50% { opacity: .25; } }
+
+  .acts { display: flex; gap: 2px; justify-content: flex-end; opacity: 0; transition: opacity .12s; }
+  .row.item:hover .acts, .row.item:focus-within .acts, .row.item.sel .acts { opacity: 1; }
+
+  /* ---------- estado vacío ---------- */
+  .empty { display: grid; place-items: center; padding: 56px 24px; text-align: center; }
+  .empty[hidden] { display: none; }
+  .empty .art { width: 84px; height: 84px; margin: 0 auto 18px; } .empty .art img { display: block; border-radius: 20px; box-shadow: 0 8px 24px rgba(30,80,200,.28); }
+  .empty .art .ic { width: 38px; height: 38px; stroke-width: 1.6; }
+  .empty h3 { margin: 0 0 6px; font-size: 17px; }
+  .empty p { margin: 0 auto 18px; color: var(--muted); max-width: 420px; }
+  .empty .cta { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  /* ---------- panel de detalle ---------- */
+  .detail { border-top: 1px solid var(--line); background: var(--surface); height: clamp(210px, 33vh, 320px); display: grid; grid-template-rows: auto minmax(0, 1fr); }
+  .detail[hidden] { display: none; }
+  .tabs { display: flex; align-items: center; gap: 2px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--line); }
+  .tab { height: 40px; padding: 0 12px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; font-weight: 600; margin-bottom: -1px; }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .tabs .ttl { margin-left: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .pane { overflow: auto; padding: 14px 16px; }
+  .pane[hidden] { display: none; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+  .stat { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); min-width: 0; }
+  .stat span { display: block; font-size: 11.5px; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+  .stat b { font-weight: 650; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .stat.wide { grid-column: span 2; }
+  .stat.err b { color: var(--err); white-space: normal; }
+  .stat .cp { display: flex; align-items: center; gap: 6px; }
+  .stat .cp b { flex: 1; font-weight: 500; font-size: 13px; }
+  .ftools { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+  .ftools .sum { margin-left: auto; color: var(--muted); font-size: 12.5px; }
+  .frow { display: grid; grid-template-columns: 22px minmax(0, 1fr) 84px 130px; gap: 12px; align-items: center; min-height: 34px; border-top: 1px solid var(--line); }
+  .frow:first-child { border-top: 0; }
+  .frow .fp { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .frow .fp em { font-style: normal; color: var(--muted); }
+  .frow.skip .fp, .frow.skip .num { opacity: .5; }
+  .frow input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+  .frow .num { color: var(--muted); text-align: right; font-size: 12.5px; }
+  .frow .prog .pct { width: 38px; }
+
+  /* ---------- barra de estado ---------- */
+  .status { display: flex; align-items: center; gap: 18px; padding: 0 16px; height: 30px; background: var(--surface); border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .status .it { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 3px 6px; margin: 0 -6px; border-radius: 6px; cursor: pointer; }
+  .status .it:hover { background: var(--hover); color: var(--text); }
+  .status b { color: var(--text); font-weight: 600; }
+  .status .grow { flex: 1; }
+  .status .lim { opacity: .7; }
+  @media (max-width: 860px) { .status .lim { display: none; } .status { gap: 12px; } }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .dot.off { background: var(--err); box-shadow: 0 0 0 3px var(--err-soft); }
+  .dot.warn { background: var(--warn); }
+
+  /* ---------- diálogos, menús, toasts ---------- */
+  dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--surface); color: var(--text); box-shadow: var(--shadow); width: min(520px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(8,10,14,.55); backdrop-filter: blur(2px); }
+  dialog form { display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; margin: 0; }
+  dialog h3 { margin: 0; font-size: 16px; }
+  dialog .sub { margin: -8px 0 0; color: var(--muted); }
+  dialog menu { display: flex; gap: 8px; justify-content: flex-end; margin: 4px 0 0; padding: 0; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hint { font-size: 12px; color: var(--muted); margin: -2px 0 0; }
+
+  #ctx { position: fixed; z-index: 50; min-width: 200px; padding: 5px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+  #ctx[hidden] { display: none; }
+  #ctx button { display: flex; align-items: center; gap: 10px; width: 100%; height: 34px; padding: 0 10px; background: none; border: 0; border-radius: 6px; cursor: pointer; text-align: left; }
+  #ctx button:hover, #ctx button:focus-visible { background: var(--hover); outline: none; }
+  #ctx button.danger { color: var(--err); }
+  #ctx hr { border: 0; border-top: 1px solid var(--line); margin: 5px 4px; }
+
+  #toasts { position: fixed; right: 16px; bottom: 44px; z-index: 60; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100vw - 32px)); pointer-events: none; }
+  .toast { pointer-events: auto; display: flex; gap: 11px; align-items: flex-start; padding: 11px 13px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; box-shadow: var(--shadow); animation: tin .2s ease-out; }
+  .toast.ok { border-left-color: var(--ok); } .toast.ok .ic { color: var(--ok); }
+  .toast.err { border-left-color: var(--err); } .toast.err .ic { color: var(--err); }
+  .toast .ic { margin-top: 1px; color: var(--accent); }
+  .toast span { flex: 1; word-break: break-word; }
+  .toast.out { opacity: 0; transform: translateY(6px); transition: .2s; }
+  @keyframes tin { from { opacity: 0; transform: translateY(8px); } }
+
+  #drop { position: fixed; inset: 0; z-index: 70; display: none; place-items: center; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(3px); pointer-events: none; }
+  body.drag #drop { display: grid; }
+  #drop div { padding: 44px 64px; border: 2px dashed var(--accent); border-radius: 20px; background: var(--surface); text-align: center; font-size: 16px; font-weight: 600; }
+  #drop .ic { width: 40px; height: 40px; color: var(--accent); display: block; margin: 0 auto 10px; }
+
+  /* ---------- adaptable ---------- */
+  @media (max-width: 1560px) {
+    .grid { min-width: 1020px; --cols: minmax(190px, 4fr) 82px minmax(120px, 2fr) 122px 90px 84px 74px 92px 88px; }
+    .c-ratio { display: none !important; }
+  }
+  @media (max-width: 1260px) {
+    .grid { min-width: 940px; --cols: minmax(190px, 4fr) 82px minmax(120px, 2fr) 122px 90px 84px 92px 88px; }
+    .c-peers { display: none !important; }
+  }
+  @media (max-width: 1100px) and (min-width: 861px) {
+    .shell { grid-template-columns: 64px minmax(0, 1fr); }
+    .side { padding: 14px 8px; align-items: center; }
+    .side h2, .speed-card, .nav .lbl { display: none; }
+    .nav { width: 46px; height: 42px; padding: 0; justify-content: center; position: relative; }
+    .nav .cnt { position: absolute; top: -3px; right: -3px; min-width: 18px; padding: 0 5px; font-size: 10.5px; line-height: 16px; border: 2px solid var(--surface); box-sizing: content-box; }
+    .nav .cnt.zero { display: none; }
+    .brand { min-width: 0; } .top-actions { min-width: 0; }
+    .grid { min-width: 860px; --cols: minmax(190px, 4fr) 82px minmax(120px, 2fr) 122px 90px 92px 88px; }
+    .c-up { display: none !important; }
+  }
+  @media (max-width: 860px) {
+    body { overflow: auto; height: auto; min-height: 100dvh; display: block; }
+    .top { flex-wrap: wrap; position: sticky; top: 0; z-index: 20; }
+    .brand, .top-actions { min-width: 0; }
+    .search { order: 3; flex-basis: 100%; max-width: none; }
+    .top-actions { margin-left: auto; }
+    .shell { display: block; }
+    .side { flex-direction: row; overflow-x: auto; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--line); gap: 6px; }
+    .side h2, .speed-card { display: none; }
+    .nav { width: auto; height: 34px; border: 1px solid var(--line); flex: none; }
+    .content { display: block; }
+    .bar-actions { padding: 12px; }
+    .count { display: none; }
+    .tablewrap { margin: 0 12px 12px; overflow: visible; }
+    .grid { min-width: 0; }
+    .row.head { display: none; }
+    .row { grid-template-columns: 1fr auto; grid-template-areas: "name acts" "prog prog" "state meta"; gap: 8px 12px; padding: 12px; }
+    .row > .c-name { grid-area: name; } .row > .prog { grid-area: prog; } .row > .c-state { grid-area: state; }
+    .row > .acts { grid-area: acts; opacity: 1; } .row > .c-meta { grid-area: meta; display: block; text-align: right; color: var(--muted); font-size: 12px; }
+    .row > .c-size, .row > .c-down, .row > .c-up, .row > .c-peers, .row > .c-eta, .row > .c-ratio { display: none; }
+    .detail { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; height: 62dvh; border-top: 1px solid var(--line); box-shadow: var(--shadow); }
+    .status { position: sticky; bottom: 0; z-index: 10; }
+    .status .opt { display: none; }
+    .brand { font-size: 15px; } .top .btn span { display: none; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat.wide { grid-column: span 2; }
+    .bar-actions { gap: 6px; }
+    .bar-actions .btn:not(.primary) { width: 38px; padding: 0; }
+    .bar-actions .btn:not(.primary) span { display: none; }
+    .bar-actions .btn { height: 38px; }
+    .sep { display: none; }
+    .frow { grid-template-columns: 22px minmax(0, 1fr) 70px; } .frow .prog { display: none; }
+    #toasts { bottom: 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><div class="logo" id="logo"></div>Huillín</div>
+  <div class="search">
+    <span id="icSearch"></span>
+    <input class="input" id="search" type="search" placeholder="Buscar torrents…" autocomplete="off" aria-label="Buscar torrents">
+    <kbd>/</kbd>
+  </div>
+  <div class="top-actions">
+    <button class="btn ghost sq" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema"></button>
+    <button class="btn ghost sq" id="settingsBtn" title="Ajustes" aria-label="Ajustes"></button>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="side" aria-label="Filtros">
+    <h2>Biblioteca</h2>
+    <nav id="nav" style="display:contents"></nav>
+    <div class="speed-card" aria-label="Velocidad en tiempo real">
+      <div class="legend">
+        <span class="d"><i></i><div>Bajada<b class="num" id="sgDown">0 B/s</b></div></span>
+        <span class="u" style="text-align:right"><div>Subida<b class="num" id="sgUp">0 B/s</b></div><i></i></span>
+      </div>
+      <canvas id="graph" role="img" aria-label="Gráfico de velocidad de los últimos 90 segundos"></canvas>
+      <div class="peak"><span>Hace 90 s</span><span id="peak">Pico 0 B/s</span><span>Ahora</span></div>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div class="bar-actions" role="toolbar" aria-label="Acciones">
+      <button class="btn primary" id="addBtn"></button>
+      <button class="btn" id="fileBtn"></button>
+      <input type="file" id="file" accept=".torrent" multiple hidden>
+      <div class="sep"></div>
+      <button class="btn" id="resumeBtn"></button>
+      <button class="btn" id="pauseBtn"></button>
+      <button class="btn" id="folderBtn"></button>
+      <button class="btn danger" id="removeBtn"></button>
+      <div class="count num" id="count"></div>
+    </div>
+
+    <div class="tablewrap" id="tablewrap" tabindex="0" aria-label="Lista de torrents">
+      <div class="grid" role="grid" id="grid">
+        <div class="row head" role="row" id="head">
+          <div class="sortable" role="columnheader" data-sort="name">Nombre</div>
+          <div class="sortable c-r" role="columnheader" data-sort="size">Tamaño</div>
+          <div class="sortable" role="columnheader" data-sort="progress">Progreso</div>
+          <div class="sortable" role="columnheader" data-sort="state">Estado</div>
+          <div class="sortable c-r" role="columnheader" data-sort="down">Bajada</div>
+          <div class="sortable c-r c-up" role="columnheader" data-sort="up">Subida</div>
+          <div class="sortable c-r c-peers" role="columnheader" data-sort="peers" title="Peers conectados (seeds)">Peers</div>
+          <div class="sortable c-r" role="columnheader" data-sort="eta">Resta</div>
+          <div class="sortable c-r c-ratio" role="columnheader" data-sort="ratio" title="Subido / descargado">Ratio</div>
+          <div role="columnheader"><span class="sr">Acciones</span></div>
+        </div>
+        <div id="rows" role="rowgroup"></div>
+      </div>
+      <div class="empty" id="empty">
+        <div>
+          <div class="art" id="emptyArt"></div>
+          <h3 id="emptyTitle">Aún no hay torrents</h3>
+          <p id="emptyText">Pega un enlace magnet con Ctrl+V, arrastra un archivo .torrent a esta ventana o usa los botones.</p>
+          <div class="cta" id="emptyCta"></div>
+        </div>
+      </div>
+    </div>
+
+    <section class="detail" id="detail" hidden aria-label="Detalles del torrent">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tabGeneral" aria-selected="true" aria-controls="paneGeneral">General</button>
+        <button class="tab" role="tab" id="tabFiles" aria-selected="false" aria-controls="paneFiles">Archivos</button>
+        <span class="ttl" id="detailTitle"></span>
+        <button class="btn ghost sm sq" id="detailClose" title="Cerrar panel (Esc)" aria-label="Cerrar panel"></button>
+      </div>
+      <div class="pane" id="paneGeneral" role="tabpanel" aria-labelledby="tabGeneral"><div class="stats" id="stats"></div></div>
+      <div class="pane" id="paneFiles" role="tabpanel" aria-labelledby="tabFiles" hidden></div>
+    </section>
+  </main>
+</div>
+
+<footer class="status">
+  <span class="it" id="conn" style="cursor:default"><span class="dot" id="connDot"></span><span id="connTxt">Conectado</span></span>
+  <button class="it" id="stDown" title="Ajustar límite de bajada"></button>
+  <button class="it" id="stUp" title="Ajustar límite de subida"></button>
+  <span class="grow"></span>
+  <span class="opt" id="stEnc"></span>
+  <span class="opt">Puerto <b id="stPort" class="num">–</b></span>
+</footer>
+
+<!-- Añadir -->
+<dialog id="dlgAdd">
+  <form method="dialog" id="addForm">
+    <h3>Añadir torrents</h3>
+    <p class="sub">Pega uno o varios enlaces magnet, uno por línea.</p>
+    <div class="field"><label for="magnets" class="sr">Enlaces magnet</label>
+      <textarea class="input" id="magnets" placeholder="magnet:?xt=urn:btih:…" spellcheck="false" autocomplete="off"></textarea></div>
+    <div class="field"><label for="addDir">Guardar en</label><input class="input" id="addDir" type="text" autocomplete="off" spellcheck="false"></div>
+    <menu>
+      <button class="btn" type="button" id="addPick"></button>
+      <span style="flex:1"></span>
+      <button class="btn" type="button" id="addCancel">Cancelar</button>
+      <button class="btn primary" type="submit" id="addGo">Añadir</button>
+    </menu>
+  </form>
+</dialog>
+
+<!-- Quitar -->
+<dialog id="dlgRemove">
+  <form method="dialog">
+    <h3 id="rmTitle">Quitar torrent</h3>
+    <p class="sub" id="rmText" style="margin-top:-6px"></p>
+    <label class="check"><input type="checkbox" id="rmFiles"> Eliminar también los archivos descargados</label>
+    <menu>
+      <button class="btn" type="button" id="rmNo">Cancelar</button>
+      <button class="btn danger solid" type="submit" id="rmYes">Quitar</button>
+    </menu>
+  </form>
+</dialog>
+
+<!-- Ajustes -->
+<dialog id="dlgSettings">
+  <form method="dialog" id="setForm">
+    <h3>Ajustes</h3>
+    <div class="field"><label for="setDir">Carpeta de descarga predeterminada</label><input class="input" id="setDir" type="text" autocomplete="off" spellcheck="false"></div>
+    <div class="row2">
+      <div class="field"><label for="setDown">Límite de bajada (KB/s)</label><input class="input num" id="setDown" type="text" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+      <div class="field"><label for="setUp">Límite de subida (KB/s)</label><input class="input num" id="setUp" type="text" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+    </div>
+    <p class="hint">0 significa sin límite.</p>
+    <div class="field"><label for="setEnc">Cifrado de conexiones</label>
+      <select class="input" id="setEnc"><option value="0">Desactivado</option><option value="1">Preferido</option><option value="2">Obligatorio</option></select></div>
+    <label class="check"><input type="checkbox" id="setClip"> Añadir automáticamente los magnets que copie</label>
+    <menu>
+      <button class="btn" type="button" id="setCancel">Cancelar</button>
+      <button class="btn primary" type="submit">Guardar</button>
+    </menu>
+  </form>
+</dialog>
+
+<div id="ctx" role="menu" hidden></div>
+<div id="toasts" role="status" aria-live="polite"></div>
+<div id="drop"><div id="dropIc"></div>Suelta aquí tus archivos .torrent o enlaces magnet</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const cv = $('graph');
+
+// ---------- iconos ----------
+const ICONS = {
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+  pause: '<path d="M8 5v14M16 5v14"/>',
+  play: '<path d="M7 4.5v15l13-7.5z"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  sliders: '<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',
+  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+  down: '<path d="M12 4v14M6 12l6 6 6-6"/>',
+  up: '<path d="M12 20V6M6 12l6-6 6 6"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h0"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h0M4 12h0M4 18h0"/>',
+  bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  inbox: '<path d="M4 13l2.5-8h11L20 13v6H4z"/><path d="M4 13h5l1 2h4l1-2h5"/>',
+};
+const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+const label = (n, t) => `${ic(n)}<span>${t}</span>`;
+
+// ---------- utilidades ----------
+const nf = (n, d) => n.toLocaleString('es', { minimumFractionDigits: d, maximumFractionDigits: d });
+function bytes(n) {
+  if (!n || n < 0) return '0 B';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  return nf(n, i === 0 ? 0 : n < 10 ? 2 : n < 100 ? 1 : 0) + ' ' + u[i];
+}
+const rate = n => bytes(n) + '/s';
+function eta(s) {
+  if (s < 0) return '–';
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  if (d) return `${d} d ${h} h`;
+  if (h) return `${h} h ${m} min`;
+  if (m) return `${m} min ${s % 60} s`;
+  return `${s} s`;
+}
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('rt.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('rt.' + k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } },
+};
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { method: 'POST', ...opts, headers: { 'X-RT': '1', ...(opts.headers || {}) } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'Error ' + r.status);
+  return j;
+}
+const json = body => ({ body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+
+function toast(text, kind = 'info') {
+  const el = document.createElement('div'); el.className = 'toast ' + kind;
+  el.innerHTML = ic(kind === 'ok' ? 'check' : kind === 'err' ? 'alert' : 'bolt') + '<span></span>';
+  el.querySelector('span').textContent = text;
+  $('toasts').appendChild(el);
+  while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 220); }, kind === 'err' ? 7000 : 4000);
+}
+
+// ---------- estado de la aplicación ----------
+const STATES = { downloading: 'Descargando', seeding: 'Compartiendo', paused: 'Pausado', checking: 'Verificando', metadata: 'Metadatos', error: 'Error' };
+const ORDER = { downloading: 0, metadata: 1, checking: 2, seeding: 3, paused: 4, error: 5 };
+const FILTERS = [
+  ['all', 'Todos', 'list', t => true],
+  ['downloading', 'Descargando', 'down', t => ['downloading', 'metadata', 'checking'].includes(t.state)],
+  ['seeding', 'Compartiendo', 'up', t => t.state === 'seeding'],
+  ['completed', 'Completados', 'check', t => isDone(t)],
+  ['paused', 'Pausados', 'pause', t => t.state === 'paused'],
+  ['active', 'Activos', 'bolt', t => t.down > 0 || t.up > 0],
+  ['error', 'Con error', 'alert', t => t.state === 'error'],
+];
+const isDone = t => t.progress >= 0.9999 && t.state !== 'checking' && t.state !== 'metadata';
+const ratioOf = t => t.downloaded > 0 ? t.uploaded / t.downloaded : (t.uploaded > 0 ? Infinity : -1);
+const SORTERS = {
+  name: (a, b) => a.name.localeCompare(b.name, 'es', { numeric: true, sensitivity: 'base' }),
+  size: (a, b) => a.wanted_size - b.wanted_size,
+  progress: (a, b) => a.progress - b.progress,
+  state: (a, b) => ORDER[a.state] - ORDER[b.state],
+  down: (a, b) => a.down - b.down,
+  up: (a, b) => a.up - b.up,
+  peers: (a, b) => a.peers - b.peers,
+  eta: (a, b) => (a.eta < 0 ? Infinity : a.eta) - (b.eta < 0 ? Infinity : b.eta),
+  ratio: (a, b) => ratioOf(a) - ratioOf(b),
+};
+
+const app = {
+  data: null,                 // última respuesta de /api/torrents
+  torrents: new Map(),        // id -> snapshot
+  rows: new Map(),            // id -> elemento
+  visible: [],                // ids visibles, en orden
+  selected: new Set(), anchor: null,
+  filter: store.get('filter', 'all'), query: '',
+  sort: store.get('sort', { key: null, dir: 1 }),
+  tab: store.get('tab', 'general'),
+  online: true, hist: { d: new Array(90).fill(0), u: new Array(90).fill(0) },
+  fileBox: { id: null, editing: false, busy: false },
+};
+
+// ---------- tema ----------
+function applyTheme(t) {
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  const dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  $('themeBtn').innerHTML = ic(dark ? 'sun' : 'moon');
+  drawGraph();
+}
+applyTheme(store.get('theme', null));
+$('themeBtn').onclick = () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  const t = dark ? 'light' : 'dark'; store.set('theme', t); applyTheme(t);
+};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(store.get('theme', null)));
+
+// ---------- estructura estática ----------
+$('logo').innerHTML = '<img src="/logo.png" alt="" width="34" height="34">';
+$('icSearch').innerHTML = ic('search');
+$('settingsBtn').innerHTML = ic('sliders');
+$('addBtn').innerHTML = label('plus', 'Añadir');
+$('fileBtn').innerHTML = label('file', 'Abrir .torrent');
+$('resumeBtn').innerHTML = label('play', 'Reanudar');
+$('pauseBtn').innerHTML = label('pause', 'Pausar');
+$('folderBtn').innerHTML = label('folder', 'Carpeta');
+$('removeBtn').innerHTML = label('trash', 'Quitar');
+$('detailClose').innerHTML = ic('x');
+$('emptyArt').innerHTML = '<img src="/logo.png" alt="" width="84" height="84">';
+$('dropIc').innerHTML = ic('down');
+$('addPick').innerHTML = label('file', 'Elegir .torrent…');
+$('emptyCta').innerHTML = '<button class="btn primary" data-act="add">' + label('plus', 'Añadir magnet') + '</button><button class="btn" data-act="file">' + label('file', 'Abrir .torrent') + '</button>';
+$('emptyCta').onclick = e => { const a = e.target.closest('[data-act]')?.dataset.act; if (a === 'add') openAdd(); else if (a === 'file') $('file').click(); };
+
+$('nav').innerHTML = FILTERS.map(([id, text, icon]) =>
+  `<button class="nav" data-f="${id}" title="${text}">${ic(icon)}<span class="lbl">${text}</span><span class="cnt num">0</span></button>`).join('');
+$('nav').onclick = e => { const b = e.target.closest('.nav'); if (b) setFilter(b.dataset.f); };
+function setFilter(f) { app.filter = f; store.set('filter', f); render(); }
+
+// ---------- filas ----------
+function makeRow(id) {
+  const el = document.createElement('div');
+  el.className = 'row item'; el.setAttribute('role', 'row'); el.dataset.id = id;
+  el.innerHTML = `
+    <div class="c-name" role="gridcell"><div class="tile"></div><div class="nm"><b></b><small></small></div></div>
+    <div class="num c-r c-size" role="gridcell"></div>
+    <div class="prog" role="gridcell"><div class="bar"><i></i></div><span class="pct num"></span></div>
+    <div class="c-state" role="gridcell"><span class="pill"></span></div>
+    <div class="num c-r c-down" role="gridcell"></div><div class="num c-r c-up" role="gridcell"></div>
+    <div class="num c-r c-peers" role="gridcell"></div><div class="num c-r c-eta" role="gridcell"></div>
+    <div class="num c-r c-ratio" role="gridcell"></div>
+    <div class="c-meta num"></div>
+    <div class="acts" role="gridcell">
+      <button class="btn ghost sm sq" data-a="toggle"></button>
+      <button class="btn ghost sm sq" data-a="open" title="Abrir carpeta" aria-label="Abrir carpeta">${ic('folder')}</button>
+      <button class="btn ghost sm sq danger" data-a="del" title="Quitar" aria-label="Quitar">${ic('trash')}</button>
+    </div>`;
+  const q = s => el.querySelector(s);
+  el.r = { tile: q('.tile'), name: q('.nm b'), sub: q('.nm small'), size: q('.c-size'), bar: q('.bar'), fill: q('.bar i'), pct: q('.pct'),
+    pill: q('.pill'), down: q('.c-down'), up: q('.c-up'), peers: q('.c-peers'), eta: q('.c-eta'), ratio: q('.c-ratio'), meta: q('.c-meta'), toggle: q('[data-a=toggle]') };
+  return el;
+}
+
+function tileIcon(t) {
+  if (t.state === 'error') return ['error', 'alert'];
+  if (t.state === 'metadata' || t.state === 'checking') return [t.state, 'clock'];
+  if (isDone(t)) return [t.state === 'seeding' ? 'seeding' : 'done', t.state === 'seeding' ? 'up' : 'check'];
+  if (t.state === 'paused') return ['paused', 'pause'];
+  return ['downloading', 'down'];
+}
+
+function subline(t) {
+  switch (t.state) {
+    case 'metadata': return 'Obteniendo metadatos de la red…';
+    case 'checking': return 'Comprobando archivos existentes…';
+    case 'error': return t.error || 'Error desconocido';
+  }
+  if (isDone(t)) { const r = ratioOf(t); return t.uploaded > 0 ? `Subido ${bytes(t.uploaded)} · ratio ${isFinite(r) ? nf(r, 2) : '∞'}` : 'Completado'; }
+  return `${bytes(t.downloaded)} de ${bytes(t.wanted_size)}`;
+}
+
+function paintRow(el, t) {
+  const r = el.r, pct = Math.min(100, t.progress * 100), done = isDone(t);
+  const [tone, icon] = tileIcon(t);
+  if (el.dataset.tone !== tone + icon) { r.tile.className = 'tile ' + tone; r.tile.innerHTML = ic(icon); el.dataset.tone = tone + icon; }
+  r.name.textContent = t.name; r.name.title = t.name;
+  r.sub.textContent = subline(t); r.sub.title = t.state === 'error' ? t.error : '';
+  r.size.textContent = t.size ? bytes(t.wanted_size) : '–';
+  r.size.title = t.size && t.wanted_size < t.size ? `Seleccionado de ${bytes(t.size)}` : '';
+  r.bar.className = 'bar ' + (done && t.state === 'paused' ? 'done' : t.state);
+  r.fill.style.width = pct + '%';
+  r.pct.textContent = t.state === 'metadata' ? '–' : nf(pct, pct >= 100 || pct === 0 ? 0 : 1) + ' %';
+  const pillClass = done && t.state === 'paused' ? 'done' : t.state;
+  r.pill.className = 'pill ' + pillClass;
+  r.pill.textContent = done && t.state === 'paused' ? 'Completado' : STATES[t.state] || t.state;
+  const dl = t.state === 'downloading' && t.down > 0, ul = t.up > 0;
+  r.down.textContent = dl ? rate(t.down) : '–'; r.down.classList.toggle('on', dl);
+  r.up.textContent = ul ? rate(t.up) : '–'; r.up.classList.toggle('on', ul);
+  r.peers.textContent = t.peers ? `${t.peers} (${t.seeds})` : '0';
+  r.eta.textContent = t.state === 'downloading' ? eta(t.eta) : '–';
+  const ra = ratioOf(t); r.ratio.textContent = ra < 0 ? '–' : isFinite(ra) ? nf(ra, 2) : '∞';
+  r.meta.textContent = [dl ? '↓ ' + rate(t.down) : '', ul ? '↑ ' + rate(t.up) : '', t.peers ? t.peers + ' peers' : '', t.state === 'downloading' && t.eta >= 0 ? eta(t.eta) : ''].filter(Boolean).join(' · ');
+  const paused = t.state === 'paused';
+  el.dataset.paused = paused ? '1' : '0';
+  r.toggle.innerHTML = ic(paused ? 'play' : 'pause');
+  const tt = paused ? 'Reanudar' : 'Pausar'; r.toggle.title = tt; r.toggle.setAttribute('aria-label', tt);
+}
+
+// ---------- render principal ----------
+function render() {
+  const all = [...app.torrents.values()];
+  // contadores
+  $('nav').querySelectorAll('.nav').forEach(b => {
+    const f = FILTERS.find(x => x[0] === b.dataset.f), n = all.filter(f[3]).length;
+    const c = b.querySelector('.cnt'); c.textContent = n; c.classList.toggle('zero', !n);
+    b.setAttribute('aria-current', app.filter === b.dataset.f ? 'true' : 'false');
+  });
+  // filtrar + buscar + ordenar
+  const pred = (FILTERS.find(x => x[0] === app.filter) || FILTERS[0])[3];
+  const q = app.query.trim().toLowerCase();
+  let list = all.filter(t => pred(t) && (!q || t.name.toLowerCase().includes(q)));
+  if (app.sort.key) { const s = SORTERS[app.sort.key]; list = list.map((t, i) => [t, i]).sort((a, b) => (s(a[0], b[0]) * app.sort.dir) || a[1] - b[1]).map(x => x[0]); }
+  app.visible = list.map(t => t.id);
+  // limpiar selección de filas que ya no son visibles
+  for (const id of [...app.selected]) if (!app.torrents.has(id)) app.selected.delete(id);
+
+  const wrap = $('rows'), shown = new Set(app.visible);
+  for (const [id, el] of app.rows) if (!shown.has(id) && el.isConnected) el.remove();
+  let prev = null;
+  for (const t of list) {
+    let el = app.rows.get(t.id);
+    if (!el) { el = makeRow(t.id); app.rows.set(t.id, el); }
+    paintRow(el, t);
+    el.classList.toggle('sel', app.selected.has(t.id)); el.setAttribute('aria-selected', app.selected.has(t.id));
+    const want = prev ? prev.nextSibling : wrap.firstChild;
+    if (el !== want) wrap.insertBefore(el, want);
+    prev = el;
+  }
+  for (const id of [...app.rows.keys()]) if (!app.torrents.has(id)) app.rows.delete(id);
+
+  // cabeceras de orden
+  $('head').querySelectorAll('.sortable').forEach(h => h.setAttribute('aria-sort', h.dataset.sort === app.sort.key ? (app.sort.dir > 0 ? 'ascending' : 'descending') : 'none'));
+
+  // vacío
+  const empty = !list.length;
+  $('empty').hidden = !empty; $('head').style.display = empty ? 'none' : '';
+  if (empty) {
+    const none = !all.length;
+    $('emptyTitle').textContent = none ? 'Aún no hay torrents' : 'Sin resultados';
+    $('emptyText').textContent = none ? 'Pega un enlace magnet con Ctrl+V, arrastra un archivo .torrent a esta ventana o usa los botones.' : 'Ningún torrent coincide con el filtro o la búsqueda actual.';
+    $('emptyCta').style.display = none ? '' : 'none';
+  }
+  $('count').textContent = all.length ? `${list.length} de ${all.length} torrent${all.length === 1 ? '' : 's'}` : '';
+  renderToolbar();
+  renderDetail();
+}
+
+function targets() { return app.selected.size ? [...app.selected] : []; }
+function renderToolbar() {
+  const sel = targets().map(id => app.torrents.get(id)).filter(Boolean);
+  const pool = sel.length ? sel : [...app.torrents.values()];
+  const anyPaused = pool.some(t => t.state === 'paused'), anyRun = pool.some(t => t.state !== 'paused');
+  const scope = sel.length ? (sel.length === 1 ? '' : ` (${sel.length})`) : ' todos';
+  $('resumeBtn').disabled = !anyPaused; $('pauseBtn').disabled = !anyRun;
+  $('resumeBtn').lastChild.textContent = 'Reanudar' + (sel.length ? '' : ' todos');
+  $('pauseBtn').lastChild.textContent = 'Pausar' + (sel.length ? '' : ' todos');
+  $('folderBtn').disabled = sel.length !== 1; $('removeBtn').disabled = !sel.length;
+  $('removeBtn').title = sel.length ? 'Quitar (Supr)' : 'Selecciona un torrent'; $('folderBtn').title = sel.length === 1 ? 'Abrir carpeta' : 'Selecciona un torrent';
+}
+
+// ---------- panel de detalle ----------
+function stat(label, value, cls = '', raw) { return `<div class="stat ${cls}"><span>${label}</span>${raw || `<b title="">${value}</b>`}</div>`; }
+function renderDetail() {
+  const id = app.selected.size === 1 ? [...app.selected][0] : (app.selected.size > 1 ? app.anchor && app.selected.has(app.anchor) ? app.anchor : [...app.selected][0] : null);
+  const t = id && app.torrents.get(id);
+  $('detail').hidden = !t;
+  if (!t) { app.fileBox.id = null; return; }
+  $('detailTitle').textContent = t.name + (app.selected.size > 1 ? `  ·  +${app.selected.size - 1} más seleccionados` : '');
+  const gen = app.tab === 'general';
+  $('tabGeneral').setAttribute('aria-selected', gen); $('tabFiles').setAttribute('aria-selected', !gen);
+  $('paneGeneral').hidden = !gen; $('paneFiles').hidden = gen;
+  if (gen) {
+    const ra = ratioOf(t), eps = t.eta >= 0 && t.state === 'downloading';
+    $('stats').innerHTML = [
+      stat('Estado', STATES[t.state] || t.state),
+      stat('Progreso', nf(Math.min(100, t.progress * 100), 2) + ' %'),
+      stat('Tamaño', bytes(t.wanted_size) + (t.size && t.wanted_size < t.size ? ' de ' + bytes(t.size) : '')),
+      stat('Descargado', bytes(t.downloaded)),
+      stat('Subido', bytes(t.uploaded)),
+      stat('Ratio', ra < 0 ? '–' : isFinite(ra) ? nf(ra, 2) : '∞'),
+      stat('Velocidad de bajada', t.down > 0 ? rate(t.down) : '–'),
+      stat('Velocidad de subida', t.up > 0 ? rate(t.up) : '–'),
+      stat('Peers conectados', `${t.peers} · ${t.seeds} seed${t.seeds === 1 ? '' : 's'}`),
+      stat('Tiempo restante', eps ? eta(t.eta) : '–'),
+      t.error ? stat('Error', '', 'wide err', `<b></b>`) : '',
+      stat('Ruta', '', 'wide', `<div class="cp"><b class="path"></b><button class="btn ghost sm sq" data-copy="path" title="Copiar ruta" aria-label="Copiar ruta">${ic('copy')}</button></div>`),
+      stat('Identificador (info hash)', '', 'wide', `<div class="cp"><b class="hash"></b><button class="btn ghost sm sq" data-copy="hash" title="Copiar hash" aria-label="Copiar hash">${ic('copy')}</button></div>`),
+    ].join('');
+    const s = $('stats');
+    s.querySelector('.path').textContent = t.path || t.save_dir || '–'; s.querySelector('.path').title = t.path || t.save_dir || '';
+    s.querySelector('.hash').textContent = t.id; s.dataset.id = t.id;
+    if (t.error) s.querySelector('.err b').textContent = t.error;
+  } else loadFiles(t.id);
+}
+$('stats').onclick = e => {
+  const b = e.target.closest('[data-copy]'); if (!b) return;
+  const t = app.torrents.get($('stats').dataset.id); if (!t) return;
+  copy(b.dataset.copy === 'hash' ? t.id : (t.path || t.save_dir), b.dataset.copy === 'hash' ? 'Hash copiado' : 'Ruta copiada');
+};
+async function copy(text, msg) {
+  try { await navigator.clipboard.writeText(text); toast(msg, 'ok'); }
+  catch { toast('No se pudo copiar al portapapeles', 'err'); }
+}
+function setTab(t) { app.tab = t; store.set('tab', t); renderDetail(); }
+$('tabGeneral').onclick = () => setTab('general'); $('tabFiles').onclick = () => setTab('files');
+$('detailClose').onclick = clearSelection;
+
+// ---------- archivos ----------
+async function loadFiles(id) {
+  const fb = app.fileBox;
+  if (fb.busy || fb.editing) return;
+  fb.busy = true;
+  try {
+    const d = await (await fetch(`/api/t/${id}/files`)).json();
+    if (app.tab !== 'files' || !d.files || $('detail').hidden) return;
+    const box = $('paneFiles');
+    if (fb.id !== id || !box.firstChild) {
+      fb.id = id;
+      box.innerHTML = `<div class="ftools"><button class="btn sm" data-a="all">Seleccionar todo</button><button class="btn sm" data-a="none">Ninguno</button><span class="sum num"></span></div><div class="flist"></div>`;
+      box.onclick = e => { const a = e.target.closest('[data-a]')?.dataset.a; if (a) setAll(a === 'all'); };
+      box.querySelector('.flist').onchange = send;
+    }
+    const list = box.querySelector('.flist');
+    if (list.children.length !== d.files.length) {
+      list.replaceChildren(...d.files.map(f => {
+        const row = document.createElement('div'); row.className = 'frow';
+        row.innerHTML = '<input type="checkbox"><span class="fp"></span><span class="num fs"></span><div class="prog"><div class="bar"><i></i></div><span class="pct num"></span></div>';
+        row.querySelector('input').dataset.i = f.index;
+        const i = f.path.lastIndexOf('/'), fp = row.querySelector('.fp');
+        if (i >= 0) { const em = document.createElement('em'); em.textContent = f.path.slice(0, i + 1); fp.append(em); }
+        fp.append(f.path.slice(i + 1)); fp.title = f.path;
+        return row;
+      }));
+    }
+    let total = 0, n = 0;
+    d.files.forEach((f, i) => {
+      const row = list.children[i], pc = f.progress * 100;
+      row.querySelector('input').checked = f.wanted; row.classList.toggle('skip', !f.wanted);
+      row.querySelector('.fs').textContent = bytes(f.size);
+      row.querySelector('.bar').className = 'bar ' + (pc >= 99.99 ? 'done' : 'downloading');
+      row.querySelector('.bar i').style.width = pc + '%';
+      row.querySelector('.pct').textContent = nf(pc, 0) + ' %';
+      if (f.wanted) { total += f.size; n++; }
+    });
+    box.querySelector('.sum').textContent = `${n} de ${d.files.length} archivos · ${bytes(total)}`;
+  } catch { /* ignorar */ } finally { fb.busy = false; }
+}
+function send() {
+  const fb = app.fileBox, id = fb.id; if (!id) return;
+  const skip = [...$('paneFiles').querySelectorAll('input[type=checkbox]')].filter(c => !c.checked).map(c => +c.dataset.i);
+  $('paneFiles').querySelectorAll('.frow').forEach(r => r.classList.toggle('skip', !r.querySelector('input').checked));
+  fb.editing = true;
+  api(`/api/t/${id}/files`, json({ skip })).catch(e => toast(e.message, 'err')).finally(() => { fb.editing = false; refresh(); });
+}
+function setAll(v) { $('paneFiles').querySelectorAll('input[type=checkbox]').forEach(c => c.checked = v); send(); }
+
+// ---------- selección ----------
+function select(id, e) {
+  if (e && (e.ctrlKey || e.metaKey)) { app.selected.has(id) ? app.selected.delete(id) : app.selected.add(id); app.anchor = id; }
+  else if (e && e.shiftKey && app.anchor && app.visible.includes(app.anchor)) {
+    const a = app.visible.indexOf(app.anchor), b = app.visible.indexOf(id), [lo, hi] = a < b ? [a, b] : [b, a];
+    app.selected = new Set(app.visible.slice(lo, hi + 1));
+  } else { app.selected = new Set([id]); app.anchor = id; }
+  render();
+}
+function clearSelection() { app.selected.clear(); app.anchor = null; render(); }
+
+$('rows').onclick = e => {
+  const row = e.target.closest('.row.item'); if (!row) return;
+  const id = row.dataset.id, btn = e.target.closest('[data-a]');
+  if (btn) {
+    e.stopPropagation();
+    if (btn.dataset.a === 'toggle') act([id], row.dataset.paused === '1' ? 'resume' : 'pause');
+    else if (btn.dataset.a === 'open') openFolder(id);
+    else if (btn.dataset.a === 'del') confirmRemove([id]);
+    return;
+  }
+  select(id, e);
+};
+$('rows').ondblclick = e => { const row = e.target.closest('.row.item'); if (row && !e.target.closest('[data-a]')) { app.tab = 'files'; store.set('tab', 'files'); renderDetail(); } };
+$('tablewrap').onclick = e => { if (e.target === $('tablewrap') || e.target.id === 'grid') clearSelection(); };
+$('head').onclick = e => {
+  const h = e.target.closest('.sortable'); if (!h) return;
+  const k = h.dataset.sort;
+  app.sort = app.sort.key !== k ? { key: k, dir: 1 } : app.sort.dir === 1 ? { key: k, dir: -1 } : { key: null, dir: 1 };
+  store.set('sort', app.sort); render();
+};
+
+// ---------- acciones ----------
+async function act(ids, action) {
+  try { await Promise.all(ids.map(id => api(`/api/t/${id}/${action}`))); } catch (e) { toast(e.message, 'err'); }
+  refresh();
+}
+const openFolder = id => api(`/api/t/${id}/open`).catch(e => toast(e.message, 'err'));
+function bulk(action) {
+  const sel = targets();
+  const pool = (sel.length ? sel.map(id => app.torrents.get(id)) : [...app.torrents.values()]).filter(Boolean);
+  const ids = pool.filter(t => action === 'pause' ? t.state !== 'paused' : t.state === 'paused').map(t => t.id);
+  if (ids.length) act(ids, action);
+}
+$('resumeBtn').onclick = () => bulk('resume'); $('pauseBtn').onclick = () => bulk('pause');
+$('folderBtn').onclick = () => { const [id] = targets(); if (id) openFolder(id); };
+$('removeBtn').onclick = () => confirmRemove(targets());
+
+let rmIds = [];
+function confirmRemove(ids) {
+  if (!ids.length) return;
+  rmIds = ids;
+  const names = ids.map(id => app.torrents.get(id)?.name).filter(Boolean);
+  $('rmTitle').textContent = ids.length === 1 ? 'Quitar torrent' : `Quitar ${ids.length} torrents`;
+  $('rmText').textContent = ids.length === 1 ? `«${names[0]}» se quitará de la lista.` : `Se quitarán de la lista: ${names.slice(0, 3).map(n => '«' + n + '»').join(', ')}${names.length > 3 ? ' y ' + (names.length - 3) + ' más' : ''}.`;
+  $('rmFiles').checked = false;
+  $('dlgRemove').showModal(); $('rmNo').focus();
+}
+$('rmNo').onclick = () => $('dlgRemove').close();
+$('dlgRemove').querySelector('form').onsubmit = async () => {
+  const del = $('rmFiles').checked, ids = rmIds;
+  try { await Promise.all(ids.map(id => api(`/api/t/${id}/remove?delete=${del}`))); toast(ids.length === 1 ? 'Torrent quitado' : `${ids.length} torrents quitados`, 'ok'); }
+  catch (e) { toast(e.message, 'err'); }
+  ids.forEach(id => app.selected.delete(id)); refresh();
+};
+
+// ---------- añadir ----------
+function openAdd(text = '') {
+  $('magnets').value = text; $('addDir').value = app.data ? app.data.default_dir : '';
+  if (!$('dlgAdd').open) $('dlgAdd').showModal();
+  $('magnets').focus();
+}
+$('addBtn').onclick = () => openAdd();
+$('addCancel').onclick = () => $('dlgAdd').close();
+$('addPick').onclick = () => $('file').click();
+$('fileBtn').onclick = () => $('file').click();
+$('addForm').onsubmit = async () => {
+  const lines = $('magnets').value.split(/\s+/).map(s => s.trim()).filter(Boolean), dir = $('addDir').value.trim();
+  let ok = 0;
+  for (const uri of lines) {
+    try { await api('/api/magnet', json({ uri, dir })); ok++; } catch (e) { toast(e.message, 'err'); }
+  }
+  if (ok) toast(ok === 1 ? 'Magnet añadido' : `${ok} magnets añadidos`, 'ok');
+  refresh();
+};
+async function addFiles(files, dir) {
+  let ok = 0;
+  for (const f of files) {
+    if (!f.name.toLowerCase().endsWith('.torrent')) { toast(`${f.name}: no es un archivo .torrent`, 'err'); continue; }
+    try { await api('/api/add?dir=' + encodeURIComponent(dir ?? (app.data ? app.data.default_dir : '')), { body: await f.arrayBuffer() }); ok++; }
+    catch (e) { toast(`${f.name}: ${e.message}`, 'err'); }
+  }
+  if (ok) toast(ok === 1 ? 'Torrent añadido' : `${ok} torrents añadidos`, 'ok');
+  $('dlgAdd').open && $('dlgAdd').close();
+  refresh();
+}
+$('file').onchange = e => { addFiles([...e.target.files], $('dlgAdd').open ? $('addDir').value.trim() : undefined); e.target.value = ''; };
+
+// ---------- ajustes ----------
+function openSettings() {
+  const d = app.data || {};
+  $('setDir').value = d.default_dir || ''; $('setDown').value = d.down_kbs || 0; $('setUp').value = d.up_kbs || 0;
+  $('setEnc').value = d.encryption ?? 1; $('setClip').checked = !!d.clipboard;
+  $('dlgSettings').showModal(); $('setDown').select();
+}
+$('settingsBtn').onclick = openSettings; $('stDown').onclick = openSettings; $('stUp').onclick = openSettings;
+$('setCancel').onclick = () => $('dlgSettings').close();
+$('setForm').onsubmit = async () => {
+  const n = v => Math.max(0, parseInt(v, 10) || 0);
+  try {
+    await api('/api/settings', json({ dir: $('setDir').value.trim() || undefined, down_kbs: n($('setDown').value), up_kbs: n($('setUp').value), encryption: +$('setEnc').value, clipboard: $('setClip').checked }));
+    toast('Ajustes guardados', 'ok');
+  } catch (e) { toast(e.message, 'err'); }
+  refresh();
+};
+
+// ---------- menú contextual ----------
+function showCtx(x, y, id) {
+  const t = app.torrents.get(id); if (!t) return;
+  if (!app.selected.has(id)) { app.selected = new Set([id]); app.anchor = id; render(); }
+  const sel = targets(), many = sel.length > 1, paused = t.state === 'paused';
+  const items = [
+    [paused ? 'play' : 'pause', paused ? 'Reanudar' : 'Pausar', () => bulk(paused ? 'resume' : 'pause')],
+    ...(many ? [] : [['folder', 'Abrir carpeta', () => openFolder(id)], ['copy', 'Copiar ruta', () => copy(t.path || t.save_dir, 'Ruta copiada')], ['copy', 'Copiar hash', () => copy(t.id, 'Hash copiado')], ['list', 'Ver archivos', () => setTab('files')]]),
+    null, ['trash', many ? `Quitar ${sel.length} torrents…` : 'Quitar…', () => confirmRemove(sel), 'danger'],
+  ];
+  const m = $('ctx'); m.replaceChildren();
+  for (const it of items) {
+    if (!it) { m.append(document.createElement('hr')); continue; }
+    const b = document.createElement('button'); b.setAttribute('role', 'menuitem'); b.className = it[3] || ''; b.innerHTML = label(it[0], it[1]);
+    b.onclick = () => { hideCtx(); it[2](); }; m.append(b);
+  }
+  m.hidden = false;
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.min(x, innerWidth - r.width - 8) + 'px'; m.style.top = Math.min(y, innerHeight - r.height - 8) + 'px';
+  m.querySelector('button').focus();
+}
+function hideCtx() { $('ctx').hidden = true; }
+$('rows').oncontextmenu = e => { const row = e.target.closest('.row.item'); if (!row) return; e.preventDefault(); showCtx(e.clientX, e.clientY, row.dataset.id); };
+addEventListener('click', e => { if (!e.target.closest('#ctx')) hideCtx(); });
+addEventListener('blur', hideCtx); addEventListener('resize', hideCtx);
+$('tablewrap').addEventListener('scroll', hideCtx);
+
+// ---------- teclado ----------
+const typing = e => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (!$('ctx').hidden) { hideCtx(); return; } }
+  if ((e.key === 'k' && (e.ctrlKey || e.metaKey)) || (e.key === '/' && !typing(e))) { e.preventDefault(); $('search').focus(); $('search').select(); return; }
+  if (e.target === $('search') && e.key === 'Escape') { $('search').value = ''; app.query = ''; $('search').blur(); render(); return; }
+  if (typing(e) || document.querySelector('dialog[open]') || e.altKey) return;
+  if (e.key === 'Escape') clearSelection();
+  else if (e.key === 'Delete' && app.selected.size) { e.preventDefault(); confirmRemove(targets()); }
+  else if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); app.selected = new Set(app.visible); render(); }
+  else if (e.key === ' ' && app.selected.size && !e.target.closest('button')) {
+    e.preventDefault();
+    const sel = targets().map(id => app.torrents.get(id)).filter(Boolean), allPaused = sel.every(t => t.state === 'paused');
+    bulk(allPaused ? 'resume' : 'pause');
+  }
+  else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && app.visible.length) {
+    e.preventDefault();
+    const cur = app.anchor ? app.visible.indexOf(app.anchor) : -1, step = e.key === 'ArrowDown' ? 1 : -1;
+    const next = app.visible[Math.max(0, Math.min(app.visible.length - 1, cur < 0 ? (step > 0 ? 0 : app.visible.length - 1) : cur + step))];
+    select(next, e.shiftKey ? { shiftKey: true } : null);
+    app.rows.get(next)?.scrollIntoView({ block: 'nearest' });
+  }
+});
+$('search').oninput = e => { app.query = e.target.value; render(); };
+
+// ---------- pegar y soltar ----------
+addEventListener('paste', e => {
+  if (typing(e)) return;
+  const t = (e.clipboardData?.getData('text') || '').trim();
+  if (t.startsWith('magnet:')) { e.preventDefault(); openAdd(t); }
+});
+let dragN = 0;
+addEventListener('dragenter', e => { e.preventDefault(); dragN++; document.body.classList.add('drag'); });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; document.body.classList.remove('drag'); } });
+addEventListener('drop', e => {
+  e.preventDefault(); dragN = 0; document.body.classList.remove('drag');
+  const t = (e.dataTransfer.getData('text') || '').trim();
+  if (t.startsWith('magnet:')) openAdd(t); else if (e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]);
+});
+
+// ---------- gráfico de velocidad ----------
+function drawGraph() {
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  const max = Math.max(64 * 1024, ...app.hist.d, ...app.hist.u) * 1.15, n = app.hist.d.length;
+  g.strokeStyle = col('--line'); g.lineWidth = 1; g.beginPath();
+  for (const f of [.25, .5, .75]) { const y = Math.round(h * f) + .5; g.moveTo(0, y); g.lineTo(w, y); }
+  g.stroke();
+  const path = (arr, close) => {
+    g.beginPath();
+    arr.forEach((v, i) => { const x = i / (n - 1) * w, y = h - 2 - v / max * (h - 6); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    if (close) { g.lineTo(w, h); g.lineTo(0, h); g.closePath(); }
+  };
+  const line = (arr, color, fill) => {
+    if (fill) { path(arr, true); const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, color + '55'); gr.addColorStop(1, color + '00'); g.fillStyle = gr; g.fill(); }
+    path(arr, false); g.strokeStyle = color; g.lineWidth = 1.7; g.lineJoin = 'round'; g.stroke();
+  };
+  const hex = c => c.length === 4 ? '#' + [...c.slice(1)].map(x => x + x).join('') : c.slice(0, 7);
+  line(app.hist.u, hex(col('--ok')), false);
+  line(app.hist.d, hex(col('--accent')), true);
+  $('peak').textContent = 'Pico ' + rate(Math.max(...app.hist.d, ...app.hist.u));
+}
+new ResizeObserver(drawGraph).observe(cv);
+
+// ---------- barra de estado y título ----------
+function setOnline(on) {
+  if (app.online === on) return;
+  app.online = on;
+  $('connDot').className = 'dot' + (on ? '' : ' off');
+  $('connTxt').textContent = on ? 'Conectado' : 'Sin conexión con el servidor — reintentando…';
+  if (!on) toast('Se perdió la conexión con Huillín. Reintentando…', 'err'); else toast('Conexión restablecida', 'ok');
+}
+const lim = k => k > 0 ? nf(k, 0) + ' KB/s' : 'sin límite';
+function renderStatus(d) {
+  $('stDown').innerHTML = `${ic('down')}<span>${rate(d.down)} <span class="lim">· límite ${lim(d.down_kbs)}</span></span>`;
+  $('stUp').innerHTML = `${ic('up')}<span>${rate(d.up)} <span class="lim">· límite ${lim(d.up_kbs)}</span></span>`;
+  $('stPort').textContent = d.port || 'cerrado';
+  $('stEnc').textContent = 'Cifrado: ' + (['desactivado', 'preferido', 'obligatorio'][d.encryption] || '–');
+  $('sgDown').textContent = rate(d.down); $('sgUp').textContent = rate(d.up);
+  const act = d.down > 0 || d.up > 0;
+  document.title = (act ? `↓ ${rate(d.down)}  ↑ ${rate(d.up)} · ` : '') + 'Huillín';
+}
+
+// ---------- sondeo ----------
+let lastClip = null, busy = false;
+async function refresh() {
+  if (busy) return; busy = true;
+  try {
+    const r = await fetch('/api/torrents'); if (!r.ok) throw new Error();
+    const d = await r.json();
+    setOnline(true);
+    app.data = d;
+    if (lastClip !== null && d.clip.n !== lastClip) toast(`Magnet detectado en el portapapeles y añadido: ${d.clip.name}`, 'ok');
+    lastClip = d.clip.n;
+    app.torrents = new Map(d.torrents.map(t => [t.id, t]));
+    app.hist.d.push(d.down); app.hist.d.shift(); app.hist.u.push(d.up); app.hist.u.shift();
+    renderStatus(d); render(); drawGraph();
+  } catch { setOnline(false); } finally { busy = false; }
+}
+
+refresh(); setInterval(refresh, 1000);
+</script>
+</body>
+</html>
