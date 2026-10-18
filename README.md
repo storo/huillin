@@ -20,6 +20,8 @@ Rápido, sin publicidad y con una interfaz limpia.
 
 ![Huillín: lista de torrents](docs/ui-main.png)
 
+![Demo: añadir un magnet de Debian, descargar, ver archivos y ajustar límites](docs/demo.gif)
+
 <details>
 <summary><b>Más capturas</b></summary>
 
@@ -66,6 +68,8 @@ Descarga la última versión desde la página de [**Releases**](https://github.c
 - **No necesitas Rust ni Cargo** para usar Huillín.
 
 > **Aviso de SmartScreen:** como el instalador aún no está firmado digitalmente, Windows puede mostrar «Windows protegió su PC». Pulsa *Más información → Ejecutar de todas formas*. Puedes comprobar la integridad del archivo con `SHA256SUMS.txt`.
+
+El instalador Windows v0.1.0 tiene un [informe en VirusTotal](https://www.virustotal.com/gui/file/24c5575c07ca249d9f957774a25e357b8d166331f3cca18b81d3ee73a673092e). El 18 de octubre de 2026 mostraba **5 detecciones entre 71 motores** y el ejecutable portable **1/71**. Las alertas siguen sin resolver; los informes no garantizan su seguridad. [Revisión de los resultados](docs/virustotal-review.md) · [Estado del lanzamiento](docs/launch-checklist.md).
 
 ## Uso
 
