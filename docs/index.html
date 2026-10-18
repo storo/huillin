@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Huillín — Cliente BitTorrent ligero y sin anuncios</title>
+<meta name="description" content="Huillín es un cliente BitTorrent ligero, sin publicidad y de código abierto para Windows, macOS y Linux, escrito en Rust.">
+<meta property="og:title" content="Huillín — Cliente BitTorrent ligero y sin anuncios">
+<meta property="og:description" content="Un solo ejecutable, sin publicidad, código abierto (MIT). Windows, macOS y Linux.">
+<meta property="og:image" content="ui-main.png">
+<link rel="icon" href="favicon.png">
+<style>
+  :root { --bg:#fff; --fg:#1b1f24; --muted:#59636e; --card:#f6f8fa; --line:#d8dee4; --accent:#2ea44f; --accent-fg:#fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --card:#161b22; --line:#30363d; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 16px; }
+  header { text-align:center; padding:56px 0 32px; }
+  header img.logo { width:120px; height:auto; }
+  h1 { font-size:2.4rem; margin:16px 0 8px; }
+  .lead { color:var(--muted); font-size:1.2rem; max-width:620px; margin:0 auto 28px; }
+  .btn { display:inline-block; background:var(--accent); color:var(--accent-fg); padding:14px 28px; border-radius:8px; font-weight:600; text-decoration:none; font-size:1.1rem; }
+  .btn:hover { filter:brightness(1.1); }
+  .sub { color:var(--muted); font-size:.9rem; margin-top:12px; }
+  .sub a { color:var(--muted); }
+  .shot { margin:40px auto; text-align:center; }
+  .shot img { max-width:100%; border:1px solid var(--line); border-radius:10px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin:24px 0 48px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; }
+  .card h3 { margin:0 0 6px; font-size:1.05rem; }
+  .card p { margin:0; color:var(--muted); font-size:.95rem; }
+  h2 { text-align:center; margin-top:48px; }
+  table { width:100%; border-collapse:collapse; margin:16px 0 48px; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); font-size:.95rem; }
+  footer { text-align:center; color:var(--muted); padding:32px 0 48px; border-top:1px solid var(--line); font-size:.9rem; }
+  footer a { color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img class="logo" src="logo.png" alt="Logo de Huillín">
+    <h1>Huillín</h1>
+    <p class="lead">Cliente BitTorrent ligero para Windows, macOS y Linux. Rápido, sin publicidad y de código abierto.</p>
+    <a id="download" class="btn" href="https://github.com/storo/huillin/releases/latest">⬇ Descargar</a>
+    <div class="sub" id="download-sub">Última versión · <a href="https://github.com/storo/huillin/releases">Todas las descargas</a></div>
+  </header>
+
+  <div class="shot"><img src="ui-main.png" alt="Huillín: lista de torrents"></div>
+
+  <h2>Características</h2>
+  <div class="grid">
+    <div class="card"><h3>Torrents y magnets</h3><p>Añade archivos .torrent o enlaces magnet.</p></div>
+    <div class="card"><h3>Red completa</h3><p>DHT y trackers para encontrar peers.</p></div>
+    <div class="card"><h3>Cifrado de protocolo</h3><p>MSE configurable desde la interfaz.</p></div>
+    <div class="card"><h3>Límites de velocidad</h3><p>Controla la subida y la bajada.</p></div>
+    <div class="card"><h3>Portapapeles inteligente</h3><p>Añade automáticamente los magnets que copies.</p></div>
+    <div class="card"><h3>Bandeja del sistema</h3><p>Cierra la ventana y las descargas siguen.</p></div>
+    <div class="card"><h3>Instancia única</h3><p>Abrir un .torrent con Huillín ya abierto lo añade a la misma ventana.</p></div>
+    <div class="card"><h3>Ligero y sin anuncios</h3><p>Un solo ejecutable, sin servicios ni publicidad. Licencia MIT.</p></div>
+  </div>
+
+  <h2>Descargas</h2>
+  <table>
+    <tr><th>Sistema</th><th>Archivo</th></tr>
+    <tr><td>Windows 10/11</td><td>Instalador <code>Huillin-Setup</code> o zip portable</td></tr>
+    <tr><td>macOS 11+</td><td>Zip para Apple Silicon o Intel</td></tr>
+    <tr><td>Linux x86_64</td><td>Paquete <code>.tar.gz</code></td></tr>
+  </table>
+  <p style="text-align:center"><a href="https://github.com/storo/huillin/releases/latest">Ver todas las descargas en GitHub</a></p>
+
+  <footer>
+    <a href="https://github.com/storo/huillin">Código fuente</a> ·
+    <a href="https://github.com/storo/huillin/issues">Reportar un problema</a> ·
+    <a href="https://github.com/storo/huillin/discussions">Comunidad</a> · Licencia MIT
+  </footer>
+</div>
+
+<script>
+(function () {
+  var ua = navigator.userAgent || "", plat = (navigator.platform || "");
+  var os = /Win/i.test(plat) || /Windows/i.test(ua) ? "windows"
+         : /Mac/i.test(plat) ? "macos"
+         : /Linux/i.test(plat) && !/Android/i.test(ua) ? "linux" : null;
+  var names = { windows: "Windows", macos: "macOS", linux: "Linux" };
+  var btn = document.getElementById("download");
+  var sub = document.getElementById("download-sub");
+  if (os) btn.textContent = "⬇ Descargar para " + names[os];
+
+  fetch("https://api.github.com/repos/storo/huillin/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (rel) {
+      var assets = rel.assets || [];
+      var pick = function (re) { return assets.filter(function (a) { return re.test(a.name); })[0]; };
+      var a = os === "windows" ? pick(/Setup.*\.exe$/i)
+            : os === "macos" ? pick(/macos.*(aarch64|arm64)/i) || pick(/macos/i)
+            : os === "linux" ? pick(/linux.*\.tar\.gz$/i) : null;
+      if (a) btn.href = a.browser_download_url;
+      sub.innerHTML = "Versión " + rel.tag_name + " · <a href=\"https://github.com/storo/huillin/releases\">Todas las descargas</a>";
+    })
+    .catch(function () {});
+})();
+</script>
+</body>
+</html>
