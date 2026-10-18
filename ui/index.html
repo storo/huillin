@@ -227,6 +227,20 @@
   dialog menu { display: flex; gap: 8px; justify-content: flex-end; margin: 4px 0 0; padding: 0; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .hint { font-size: 12px; color: var(--muted); margin: -2px 0 0; }
+  #dlgAbout { width: min(600px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
+  .about-body { padding: 22px; }
+  .about-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .about-brand img { width: 64px; height: 64px; border-radius: 16px; }
+  .about-brand h3 { font-size: 22px; }
+  .about-brand p { margin: 2px 0 0; color: var(--muted); }
+  .about-body h4 { font-size: 14px; margin: 18px 0 6px; }
+  .about-body p { margin: 6px 0; }
+  .about-body a { color: var(--accent); text-underline-offset: 3px; }
+  .about-links { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
+  .about-license { margin-top: 12px; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  .about-license summary { cursor: pointer; font-weight: 600; }
+  .about-license pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, Consolas, monospace; margin: 12px 0 0; }
+  .about-footer { display: flex; justify-content: flex-end; padding: 12px 22px; border-top: 1px solid var(--line); }
 
   #ctx { position: fixed; z-index: 50; min-width: 200px; padding: 5px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
   #ctx[hidden] { display: none; }
@@ -318,6 +332,7 @@
   <div class="top-actions">
     <button class="btn ghost sq" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema"></button>
     <button class="btn ghost sq" id="settingsBtn" title="Ajustes" aria-label="Ajustes"></button>
+    <button class="btn ghost sq" id="aboutBtn" title="Acerca de Huillín" aria-label="Acerca de Huillín" aria-haspopup="dialog" aria-controls="dlgAbout"></button>
   </div>
 </header>
 
@@ -446,6 +461,37 @@
   </form>
 </dialog>
 
+<!-- Acerca de -->
+<dialog id="dlgAbout" aria-labelledby="aboutTitle">
+  <div class="about-body">
+    <div class="about-brand">
+      <img src="/logo.png" alt="" width="64" height="64">
+      <div><h3 id="aboutTitle">Acerca de Huillín</h3><p>Versión __HUILLIN_VERSION__ · Hecho con Rust</p></div>
+    </div>
+    <p>Huillín es un cliente BitTorrent ligero, de código abierto y sin publicidad para Windows, macOS y Linux. Permite descargar y compartir archivos mediante torrents y enlaces magnet.</p>
+    <section aria-labelledby="aboutAnimal">
+      <h4 id="aboutAnimal">¿Qué es un huillín?</h4>
+      <p>El huillín (<i lang="la">Lontra provocax</i>), también conocido como nutria de río, es una nutria nativa del sur de Chile y Argentina. Habita ríos, lagos y zonas costeras, y es la especie que da nombre a esta app.</p>
+      <p><a href="https://simbio.mma.gob.cl/Especies/Details/4515" target="_blank" rel="noopener noreferrer">Conocer al huillín · Ministerio del Medio Ambiente</a></p>
+    </section>
+    <section aria-labelledby="aboutCredits">
+      <h4 id="aboutCredits">Créditos y proyecto</h4>
+      <p>Desarrollado por storo. Construido con Rust, Tokio, Axum, tao y wry, junto con las demás bibliotecas de código abierto del proyecto.</p>
+      <div class="about-links">
+        <a href="https://github.com/storo/huillin" target="_blank" rel="noopener noreferrer">Código fuente y contribuciones</a>
+        <a href="https://github.com/storo/huillin/issues" target="_blank" rel="noopener noreferrer">Reportar un problema</a>
+      </div>
+    </section>
+    <section aria-labelledby="aboutLicense">
+      <h4 id="aboutLicense">Licencia MIT</h4>
+      <p>Copyright © 2026 storo. Puedes usar, copiar, modificar y distribuir esta app, incluso con fines comerciales, conservando el aviso de copyright y la licencia. Se entrega sin garantías.</p>
+      <details class="about-license"><summary>Leer la licencia completa (en inglés)</summary><pre lang="en">__HUILLIN_LICENSE__</pre></details>
+    </section>
+    <p class="hint" style="margin-top:18px">Comparte y descarga solo contenido que tengas derecho a usar y distribuir.</p>
+  </div>
+  <form method="dialog" class="about-footer"><button class="btn primary" autofocus>Cerrar</button></form>
+</dialog>
+
 <div id="ctx" role="menu" hidden></div>
 <div id="toasts" role="status" aria-live="polite"></div>
 <div id="drop"><div id="dropIc"></div>Suelta aquí tus archivos .torrent o enlaces magnet</div>
@@ -477,6 +523,7 @@ const ICONS = {
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   inbox: '<path d="M4 13l2.5-8h11L20 13v6H4z"/><path d="M4 13h5l1 2h4l1-2h5"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h0"/>',
 };
 const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 const label = (n, t) => `${ic(n)}<span>${t}</span>`;
@@ -577,6 +624,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => appl
 $('logo').innerHTML = '<img src="/logo.png" alt="" width="34" height="34">';
 $('icSearch').innerHTML = ic('search');
 $('settingsBtn').innerHTML = ic('sliders');
+$('aboutBtn').innerHTML = ic('info');
+$('aboutBtn').onclick = () => $('dlgAbout').showModal();
 $('addBtn').innerHTML = label('plus', 'Añadir');
 $('fileBtn').innerHTML = label('file', 'Abrir .torrent');
 $('resumeBtn').innerHTML = label('play', 'Reanudar');
