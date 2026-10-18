@@ -46,6 +46,7 @@ Rápido, sin publicidad y con una interfaz limpia.
 - **Asociación de archivos** — `.torrent` y `magnet:` se abren con Huillín (opcional).
 - **Ligero** — un solo ejecutable, sin servicios ni dependencias extra.
 - **Modo web opcional** — el mismo panel disponible en el navegador (`--web`).
+- **Aviso de nuevas versiones** — comprueba al abrir el panel y permite buscar desde Ajustes. Si hay una versión estable más reciente, ofrece abrir su descarga en el navegador; la instalación es manual.
 
 ## Instalación
 

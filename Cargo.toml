@@ -16,6 +16,8 @@ tao = "0.37.1"
 wry = "0.57.0"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 tray-icon = "0.26.1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+semver = "1"
 
 [profile.release]
 opt-level = 3
