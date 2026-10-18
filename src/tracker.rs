@@ -1,9 +1,9 @@
 //! Anuncios a trackers HTTP y UDP (BEP 15).
 use crate::bencode::{self, Value};
+use crate::network::Route;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{lookup_host, TcpStream, UdpSocket};
 use tokio::time::timeout;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -66,25 +66,25 @@ fn pct(b: &[u8]) -> String {
 }
 
 /// Devuelve (intervalo en segundos, peers).
-pub async fn announce(url: &str, s: &Stats<'_>) -> Result<(u32, Vec<SocketAddr>), String> {
+pub async fn announce(url: &str, s: &Stats<'_>, route: &Route) -> Result<(u32, Vec<SocketAddr>), String> {
     if let Some(rest) = url.strip_prefix("udp://") {
-        udp(rest, s).await
+        udp(rest, s, route).await
     } else if let Some(rest) = url.strip_prefix("http://") {
-        http(rest, s).await
+        http(rest, s, route).await
     } else {
         Err(format!("tracker no soportado: {url}"))
     }
 }
 
-async fn udp(rest: &str, s: &Stats<'_>) -> Result<(u32, Vec<SocketAddr>), String> {
+async fn udp(rest: &str, s: &Stats<'_>, route: &Route) -> Result<(u32, Vec<SocketAddr>), String> {
     let hostport = rest.split('/').next().unwrap_or(rest);
-    let addr = lookup_host(hostport)
+    let addr = route.resolve(hostport)
         .await
         .map_err(|e| e.to_string())?
-        .min_by_key(|a| a.is_ipv6()) // prefiere IPv4 si el host tiene ambas
+        .into_iter().min_by_key(|a| a.is_ipv6()) // prefiere IPv4 si el host tiene ambas
         .ok_or("host sin direcciones")?;
     let v6 = addr.is_ipv6();
-    let sock = UdpSocket::bind(if v6 { "[::]:0" } else { "0.0.0.0:0" }).await.map_err(|e| e.to_string())?;
+    let sock = route.udp(v6).map_err(|e| e.to_string())?;
     sock.connect(addr).await.map_err(|e| e.to_string())?;
     let mut buf = vec![0u8; 8192];
 
@@ -130,7 +130,7 @@ async fn udp(rest: &str, s: &Stats<'_>) -> Result<(u32, Vec<SocketAddr>), String
     Ok((interval, compact(&buf[20..n], v6)))
 }
 
-async fn http(rest: &str, s: &Stats<'_>) -> Result<(u32, Vec<SocketAddr>), String> {
+async fn http(rest: &str, s: &Stats<'_>, route: &Route) -> Result<(u32, Vec<SocketAddr>), String> {
     let (hostport, path) = match rest.find('/') {
         Some(i) => (&rest[..i], &rest[i..]),
         None => (rest, "/"),
@@ -148,9 +148,13 @@ async fn http(rest: &str, s: &Stats<'_>) -> Result<(u32, Vec<SocketAddr>), Strin
     if s.event != Event::None {
         query.push_str(&format!("&event={}", s.event.name()));
     }
-    let target = if hostport.contains(':') { hostport.to_string() } else { format!("{hostport}:80") };
+    let target = if hostport.starts_with('[') && hostport.ends_with(']') || !hostport.contains(':') { format!("{hostport}:80") } else { hostport.to_string() };
     let body = timeout(Duration::from_secs(20), async {
-        let mut c = TcpStream::connect(&target).await.map_err(|e| e.to_string())?;
+        let mut connected = None;
+        for addr in route.resolve(&target).await.map_err(|e| e.to_string())? {
+            if let Ok(stream) = route.connect(addr).await { connected = Some(stream); break; }
+        }
+        let mut c = connected.ok_or("No se puede conectar al tracker mediante la interfaz seleccionada")?;
         let req = format!(
             "GET {path}{sep}{query} HTTP/1.0\r\nHost: {hostport}\r\nUser-Agent: Huillin/0.1\r\nConnection: close\r\n\r\n"
         );

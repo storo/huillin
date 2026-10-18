@@ -39,6 +39,7 @@ Rápido, sin publicidad y con una interfaz limpia.
 - **Red completa** — DHT y trackers para encontrar peers.
 - **Cifrado de protocolo (MSE)** — configurable desde la interfaz.
 - **Límites de velocidad** — de subida y de bajada.
+- **Interfaz de red / VPN** — restringe el tráfico BitTorrent a un adaptador y bloquea las transferencias si no está disponible.
 - **Portapapeles inteligente** — añade automáticamente los magnets que copies (opción desactivable en Ajustes).
 - **App de escritorio nativa** — ventana propia (WebView2 / WKWebView / WebKitGTK), sin navegador ni consola.
 - **Bandeja del sistema** — cierra la ventana y las descargas siguen; clic en el icono para volver.
@@ -77,6 +78,32 @@ El instalador Windows v0.1.0 tiene un [informe en VirusTotal](https://www.virust
 1. Abre Huillín desde el menú Inicio.
 2. Arrastra un `.torrent`, pega un magnet o haz doble clic en un archivo `.torrent` (si activaste la asociación).
 3. Cierra la ventana para enviarlo a la bandeja; para salir del todo usa clic derecho en el icono → **Salir**.
+
+### Usar una VPN instalada
+
+En **Ajustes → Interfaz de red / VPN**, selecciona el adaptador de tu VPN y guarda.
+Los cambios se aplican sin reiniciar: se cierran las conexiones anteriores y se vuelve
+a descubrir peers mediante la nueva interfaz. Si el adaptador desaparece o pierde sus
+direcciones compatibles, Huillín bloquea el tráfico y vuelve a intentarlo cuando regresa,
+sin recurrir a otra interfaz. Los torrents pausados siguen pausados. La selección se
+conserva al cerrar la aplicación, incluso si la VPN no está disponible al arrancar.
+
+La restricción cubre conexiones entrantes y salientes, trackers HTTP/UDP, DHT y DNS.
+En este modo se usa DNS por UDP mediante la interfaz elegida; el servidor predeterminado
+es **Cloudflare (1.1.1.1)**. Puedes introducir la IP del DNS de tu VPN. Para una interfaz
+solo IPv6, configura un servidor DNS IPv6. No se usa el DNS del sistema como alternativa;
+una consulta fallida o truncada falla sin recurrir a otra red. Una familia de direcciones
+que no tenga la interfaz queda deshabilitada.
+
+El indicador **Solo: …** confirma la restricción al adaptador, no que el túnel tenga
+acceso a Internet. Huillín no inicia la VPN ni comprueba la identidad del proveedor.
+La VPN debe estar conectada desde su propia aplicación. En Linux, si el sistema no
+permite vincular sockets a la interfaz, se muestra el error y el tráfico queda bloqueado.
+El panel local y la comunicación entre instancias siguen usando loopback.
+La consulta de actualizaciones se deshabilita en modo restringido para evitar
+consultas adicionales mediante la red predeterminada del sistema.
+
+Seleccionar **Cualquier interfaz (sin restricción)** vuelve al comportamiento normal.
 
 ### Línea de comandos
 

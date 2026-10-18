@@ -1,12 +1,13 @@
 //! Cliente DHT mínimo (BEP 5, con IPv6 según BEP 32): solo búsquedas `get_peers`; no responde consultas.
 //! Se usa una instancia por familia de direcciones (cada socket habla solo IPv4 o solo IPv6).
 use crate::bencode::{self, Value};
+use crate::network::{AbortOnDrop, Route};
 use std::collections::{HashMap, HashSet};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tokio::net::{lookup_host, UdpSocket};
+use tokio::net::UdpSocket;
 use tokio::sync::{mpsc::UnboundedSender, oneshot};
 use tokio::task::JoinSet;
 
@@ -19,6 +20,7 @@ pub struct Dht {
     id: [u8; 20],
     counter: AtomicU16,
     pending: Mutex<HashMap<[u8; 2], oneshot::Sender<Value>>>,
+    route: Arc<Route>,
 }
 
 fn parse_peer(b: &[u8]) -> Option<SocketAddr> {
@@ -33,11 +35,11 @@ fn parse_peer(b: &[u8]) -> Option<SocketAddr> {
 }
 
 impl Dht {
-    pub async fn start(v6: bool) -> std::io::Result<Arc<Dht>> {
-        let sock = UdpSocket::bind(if v6 { "[::]:0" } else { "0.0.0.0:0" }).await?;
-        let d = Arc::new(Dht { sock, v6, id: rand::random(), counter: AtomicU16::new(0), pending: Mutex::new(HashMap::new()) });
+    pub async fn start(v6: bool, route: Arc<Route>) -> std::io::Result<(Arc<Dht>, AbortOnDrop)> {
+        let sock = route.udp(v6)?;
+        let d = Arc::new(Dht { sock, v6, id: rand::random(), counter: AtomicU16::new(0), pending: Mutex::new(HashMap::new()), route });
         let rx = d.clone();
-        tokio::spawn(async move {
+        let receiver = tokio::spawn(async move {
             let mut buf = vec![0u8; 65536];
             loop {
                 match rx.sock.recv_from(&mut buf).await {
@@ -57,7 +59,7 @@ impl Dht {
                 }
             }
         });
-        Ok(d)
+        Ok((d, AbortOnDrop(receiver)))
     }
 
     async fn query(&self, addr: SocketAddr, info_hash: &[u8; 20]) -> Option<Value> {
@@ -83,8 +85,8 @@ impl Dht {
     pub async fn get_peers(self: &Arc<Self>, info_hash: [u8; 20], out: UnboundedSender<SocketAddr>, duration: Duration) {
         let mut nodes: HashMap<SocketAddr, [u8; 20]> = HashMap::new();
         for host in BOOTSTRAP {
-            if let Ok(addrs) = lookup_host(host).await {
-                for a in addrs.filter(|a| a.is_ipv6() == self.v6) {
+            if let Ok(addrs) = self.route.resolve(host).await {
+                for a in addrs.into_iter().filter(|a| a.is_ipv6() == self.v6) {
                     nodes.insert(a, [0xff; 20]);
                 }
             }
