@@ -43,6 +43,7 @@ Rápido, sin publicidad y con una interfaz limpia.
 - **Portapapeles inteligente** — añade automáticamente los magnets que copies (opción desactivable en Ajustes).
 - **App de escritorio nativa** — ventana propia (WebView2 / WKWebView / WebKitGTK), sin navegador ni consola.
 - **Bandeja del sistema** — cierra la ventana y las descargas siguen; clic en el icono para volver.
+- **Selección múltiple** — marca las casillas de los torrents o usa «Seleccionar visibles» para pausarlos, reanudarlos o quitarlos juntos. También admite Ctrl+clic y Shift+clic.
 - **Instancia única** — abrir un `.torrent` o magnet con Huillín ya abierto lo añade a esa misma ventana.
 - **Asociación de archivos** — `.torrent` y `magnet:` se abren con Huillín (opcional).
 - **Ligero** — un solo ejecutable, sin servicios ni dependencias extra.

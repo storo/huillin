@@ -240,7 +240,7 @@ fn main() {
         }
     }
     let mut tb = Some(tb);
-    let mut _tray = None;
+    let mut tray = None;
     let p = proxy.clone();
     MenuEvent::set_event_handler(Some(move |e: MenuEvent| {
         if e.id == id_show {
@@ -261,10 +261,25 @@ fn main() {
         match event {
             // La bandeja se crea con el bucle ya en marcha (requisito de macOS).
             Event::NewEvents(StartCause::Init) => {
-                _tray = tb.take().and_then(|b| b.build().ok());
+                tray = tb.take().and_then(|b| match b.build() {
+                    Ok(icon) => Some(icon),
+                    Err(error) => {
+                        eprintln!("No se pudo crear el icono de la bandeja: {error}");
+                        window.set_title("Huillín — bandeja no disponible");
+                        None
+                    }
+                });
             }
             // Cerrar la ventana la oculta en la bandeja; la descarga sigue.
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => window.set_visible(false),
+            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+                session.save();
+                // Mantener el icono vivo y no ocultar una ventana sin forma de recuperarla.
+                if tray.is_some() {
+                    window.set_visible(false);
+                } else {
+                    window.set_minimized(true);
+                }
+            }
             Event::UserEvent(UserEvent::Show) => {
                 window.set_visible(true);
                 window.set_minimized(false);

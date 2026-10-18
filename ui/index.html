@@ -135,6 +135,9 @@
   .c-meta { display: none; }
 
   .c-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .torrent-check { width: 18px; height: 18px; flex: none; accent-color: var(--accent); cursor: pointer; }
+  .selection-tools { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  #clearSelection[hidden] { display: none; }
   .tile { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--idle-soft); color: var(--idle); }
   .tile.downloading { background: var(--accent-soft); color: var(--accent); }
   .tile.seeding { background: var(--ok-soft); color: var(--ok); }
@@ -317,6 +320,7 @@
     .stat.wide { grid-column: span 2; }
     .bar-actions { gap: 6px; }
     .bar-actions .btn:not(.primary) { width: 38px; padding: 0; }
+    .bar-actions #clearSelection { width: auto; padding: 0 10px; }
     .bar-actions .btn:not(.primary) span { display: none; }
     .bar-actions .btn { height: 38px; }
     .sep { display: none; }
@@ -366,11 +370,14 @@
       <button class="btn" id="pauseBtn"></button>
       <button class="btn" id="folderBtn"></button>
       <button class="btn danger" id="removeBtn"></button>
+      <label class="selection-tools"><input class="torrent-check" type="checkbox" id="selectAll"> Seleccionar visibles</label>
+      <span class="selection-tools num" id="selectionCount" aria-live="polite"></span>
+      <button class="btn ghost" id="clearSelection" hidden>Limpiar selección</button>
       <div class="count num" id="count"></div>
     </div>
 
     <div class="tablewrap" id="tablewrap" tabindex="0" aria-label="Lista de torrents">
-      <div class="grid" role="grid" id="grid">
+      <div class="grid" role="grid" id="grid" aria-multiselectable="true">
         <div class="row head" role="row" id="head">
           <div class="sortable" role="columnheader" data-sort="name">Nombre</div>
           <div class="sortable c-r" role="columnheader" data-sort="size">Tamaño</div>
@@ -673,7 +680,7 @@ function makeRow(id) {
   const el = document.createElement('div');
   el.className = 'row item'; el.setAttribute('role', 'row'); el.dataset.id = id;
   el.innerHTML = `
-    <div class="c-name" role="gridcell"><div class="tile"></div><div class="nm"><b></b><small></small></div></div>
+    <div class="c-name" role="gridcell"><input class="torrent-check" type="checkbox" data-a="select"><div class="tile"></div><div class="nm"><b></b><small></small></div></div>
     <div class="num c-r c-size" role="gridcell"></div>
     <div class="prog" role="gridcell"><div class="bar"><i></i></div><span class="pct num"></span></div>
     <div class="c-state" role="gridcell"><span class="pill"></span></div>
@@ -715,6 +722,9 @@ function paintRow(el, t) {
   const [tone, icon] = tileIcon(t);
   if (el.dataset.tone !== tone + icon) { r.tile.className = 'tile ' + tone; r.tile.innerHTML = ic(icon); el.dataset.tone = tone + icon; }
   r.name.textContent = t.name; r.name.title = t.name;
+  const checkbox = el.querySelector('[data-a=select]');
+  checkbox.checked = app.selected.has(t.id);
+  checkbox.setAttribute('aria-label', 'Seleccionar ' + t.name);
   r.sub.textContent = subline(t); r.sub.title = t.state === 'error' ? t.error : '';
   r.size.textContent = t.size ? bytes(t.wanted_size) : '–';
   r.size.title = t.size && t.wanted_size < t.size ? `Seleccionado de ${bytes(t.size)}` : '';
@@ -793,8 +803,15 @@ function renderToolbar() {
   const anyPaused = pool.some(t => t.state === 'paused'), anyRun = pool.some(t => t.state !== 'paused');
   const scope = sel.length ? (sel.length === 1 ? '' : ` (${sel.length})`) : ' todos';
   $('resumeBtn').disabled = !anyPaused; $('pauseBtn').disabled = !anyRun;
-  $('resumeBtn').lastChild.textContent = 'Reanudar' + (sel.length ? '' : ' todos');
-  $('pauseBtn').lastChild.textContent = 'Pausar' + (sel.length ? '' : ' todos');
+  $('resumeBtn').lastChild.textContent = 'Reanudar' + scope;
+  $('pauseBtn').lastChild.textContent = 'Pausar' + scope;
+  $('removeBtn').lastChild.textContent = 'Quitar' + (sel.length > 1 ? ` (${sel.length})` : '');
+  const visibleSelected = app.visible.filter(id => app.selected.has(id)).length;
+  $('selectAll').checked = app.visible.length > 0 && visibleSelected === app.visible.length;
+  $('selectAll').indeterminate = visibleSelected > 0 && visibleSelected < app.visible.length;
+  $('selectAll').disabled = !app.visible.length;
+  $('selectionCount').textContent = sel.length ? `${sel.length} seleccionado${sel.length === 1 ? '' : 's'}` : '';
+  $('clearSelection').hidden = !sel.length;
   $('folderBtn').disabled = sel.length !== 1; $('removeBtn').disabled = !sel.length;
   $('removeBtn').title = sel.length ? 'Quitar (Supr)' : 'Selecciona un torrent'; $('folderBtn').title = sel.length === 1 ? 'Abrir carpeta' : 'Selecciona un torrent';
 }
@@ -905,13 +922,21 @@ function select(id, e) {
   render();
 }
 function clearSelection() { app.selected.clear(); app.anchor = null; render(); }
+$('clearSelection').onclick = clearSelection;
+$('selectAll').onchange = e => {
+  for (const id of app.visible) {
+    if (e.target.checked) app.selected.add(id); else app.selected.delete(id);
+  }
+  render();
+};
 
 $('rows').onclick = e => {
   const row = e.target.closest('.row.item'); if (!row) return;
   const id = row.dataset.id, btn = e.target.closest('[data-a]');
   if (btn) {
     e.stopPropagation();
-    if (btn.dataset.a === 'toggle') act([id], row.dataset.paused === '1' ? 'resume' : 'pause');
+    if (btn.dataset.a === 'select') select(id, { ctrlKey: true });
+    else if (btn.dataset.a === 'toggle') act([id], row.dataset.paused === '1' ? 'resume' : 'pause');
     else if (btn.dataset.a === 'open') openFolder(id);
     else if (btn.dataset.a === 'del') confirmRemove([id]);
     return;
