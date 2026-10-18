@@ -42,7 +42,7 @@ jobs:
           Compress-Archive -Path dist\portable\* -DestinationPath "dist\Huillin-$v-portable.zip"
           Remove-Item -Recurse dist\portable
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-windows
           path: dist/*
@@ -88,7 +88,7 @@ jobs:
           EOF
           tar -czf "dist/$d.tar.gz" "$d"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-linux
           path: dist/*
@@ -161,7 +161,7 @@ jobs:
           codesign --force --deep --sign - "$app"
           cd dist && ditto -c -k --keepParent Huillin.app "Huillin-$v-macos-${{ matrix.arch }}.zip" && rm -rf Huillin.app
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-macos-${{ matrix.arch }}
           path: dist/*
