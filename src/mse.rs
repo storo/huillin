@@ -1,7 +1,6 @@
 //! Cifrado de protocolo BitTorrent (Message Stream Encryption / Protocol Encryption).
 //! Intercambio Diffie-Hellman de 768 bits y flujo RC4 sobre toda la conexión.
 use num_bigint::BigUint;
-use rand::Rng;
 use sha1::{Digest, Sha1};
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -83,7 +82,7 @@ fn shared(x: &BigUint, their: &[u8; 96]) -> Result<[u8; 96], String> {
 }
 
 fn random_pad() -> Vec<u8> {
-    let n = rand::thread_rng().gen_range(0..=MAX_PAD);
+    let n = rand::random_range(0..=MAX_PAD);
     (0..n).map(|_| rand::random()).collect()
 }
 

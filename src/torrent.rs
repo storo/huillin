@@ -6,7 +6,6 @@ use crate::mse::{self, Crypt, Rc4};
 use crate::ratelimit::Limiter;
 use crate::storage::Storage;
 use crate::tracker::{self, Event, Stats};
-use rand::Rng;
 use serde_json::json;
 use sha1::{Digest, Sha1};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -269,7 +268,7 @@ impl Inner {
         }
         // 2. nueva pieza: la más rara que ofrezca este peer
         let n = self.have.len();
-        let start = rand::thread_rng().gen_range(0..n.max(1));
+        let start = rand::random_range(0..n.max(1));
         let mut best: Option<(u16, usize)> = None;
         for k in 0..n {
             let i = (start + k) % n;
@@ -366,7 +365,7 @@ impl Inner {
         cand.sort_by(|a, b| b.1.total_cmp(&a.1));
         let mut unchoke: HashSet<u64> = cand.iter().take(4).map(|c| c.0).collect();
         if cand.len() > 4 {
-            unchoke.insert(cand[rand::thread_rng().gen_range(4..cand.len())].0);
+            unchoke.insert(cand[rand::random_range(4..cand.len())].0);
         }
         for (id, p) in self.peers.iter_mut() {
             let want = unchoke.contains(id);
