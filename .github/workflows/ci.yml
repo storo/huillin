@@ -6,7 +6,8 @@ on:
   pull_request:
 
 jobs:
-  check:
+  check-platforms:
+    name: check (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -21,3 +22,13 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev libayatana-appindicator3-dev
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --locked
+
+  check:
+    needs: check-platforms
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar todas las plataformas
+        env:
+          RESULT: ${{ needs.check-platforms.result }}
+        run: test "$RESULT" = "success"
