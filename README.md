@@ -14,7 +14,7 @@ Rápido, sin publicidad y con una interfaz limpia.
 ![Plataforma](https://img.shields.io/badge/plataforma-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?style=flat-square)
 ![Rust](https://img.shields.io/badge/hecho%20con-Rust-dea584?style=flat-square&logo=rust&logoColor=white)
 
-[**⬇ Descargar**](https://github.com/storo/huillin/releases/latest) · [Características](#características) · [Instalación](#instalación) · [Uso](#uso) · [Compilar](#compilar-desde-el-código-fuente)
+[**⬇ Descargar**](https://github.com/storo/huillin/releases/latest) · [Sitio web](https://storo.github.io/huillin/) · [Características](#características) · [Instalación](#instalación) · [Uso](#uso) · [Compilar](#compilar-desde-el-código-fuente)
 
 </div>
 
