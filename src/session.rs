@@ -1,7 +1,7 @@
 //! Sesión: lista de torrents, listeners de conexiones entrantes (IPv4/IPv6) y persistencia.
-use crate::dht::Dht;
 use crate::meta::{self, Meta};
 use crate::mse;
+use crate::network::{Config as NetworkConfig, Network};
 use crate::ratelimit::Limiter;
 use crate::torrent::{Ctx, Incoming, State, Torrent, HEADER};
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,8 @@ use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpStream;
+use tokio::task::JoinSet;
 use tokio::time::{sleep, timeout};
 
 pub struct Session {
@@ -24,6 +25,7 @@ pub struct Session {
     /// (contador, nombre) del último magnet añadido desde el portapapeles.
     pub clip_event: Mutex<(u64, String)>,
     data_dir: PathBuf,
+    save_lock: Mutex<()>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -39,6 +41,8 @@ struct SavedTorrent {
 
 #[derive(Serialize, Deserialize)]
 struct SavedState {
+    #[serde(default)]
+    network: NetworkConfig,
     default_dir: Option<String>,
     #[serde(default)]
     down_kbs: u64,
@@ -80,7 +84,15 @@ fn app_data_dir() -> PathBuf {
 
 impl Default for SavedState {
     fn default() -> Self {
-        SavedState { default_dir: None, down_kbs: 0, up_kbs: 0, encryption: 1, clipboard: true, torrents: Vec::new() }
+        SavedState { network: NetworkConfig::default(), default_dir: None, down_kbs: 0, up_kbs: 0, encryption: 1, clipboard: true, torrents: Vec::new() }
+    }
+}
+
+fn load_state(path: &std::path::Path) -> std::io::Result<SavedState> {
+    match std::fs::read(path) {
+        Ok(bytes) => serde_json::from_slice(&bytes).map_err(std::io::Error::other),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(SavedState::default()),
+        Err(error) => Err(error),
     }
 }
 
@@ -90,33 +102,9 @@ impl Session {
         let _ = std::fs::create_dir_all(data_dir.join("torrents"));
         let mut default_dir = home_dir().join("Downloads");
 
-        // Mismo puerto en IPv4 e IPv6 (en Windows son sockets separados).
-        let mut listeners = Vec::new();
-        let mut port = 0;
-        for p in 6881..=6999u16 {
-            if let Ok(l) = TcpListener::bind(("0.0.0.0", p)).await {
-                listeners.push(l);
-                port = p;
-                break;
-            }
-        }
-        if port != 0 {
-            if let Ok(l) = TcpListener::bind(("::", port)).await {
-                listeners.push(l);
-            }
-        }
-
-        let mut dhts = Vec::new();
-        for v6 in [false, true] {
-            if let Ok(d) = Dht::start(v6).await {
-                dhts.push(d);
-            }
-        }
-
-        let saved: SavedState = std::fs::read(data_dir.join("state.json"))
-            .ok()
-            .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or_default();
+        // Never discard a saved network restriction on a read/parse failure.
+        let saved = load_state(&data_dir.join("state.json"))
+            .expect("No se pudo leer state.json; se detiene el arranque para conservar la restricción de red");
         if let Some(d) = &saved.default_dir {
             default_dir = PathBuf::from(d);
         }
@@ -126,8 +114,8 @@ impl Session {
                 id[..8].copy_from_slice(b"-RT0100-");
                 id
             },
-            port: AtomicU16::new(port),
-            dht: dhts,
+            port: AtomicU16::new(0),
+            network: Network::new(saved.network),
             down: Limiter::new(),
             up: Limiter::new(),
             encryption: AtomicU8::new(saved.encryption.min(2)),
@@ -141,6 +129,7 @@ impl Session {
             clipboard: AtomicBool::new(saved.clipboard),
             clip_event: Mutex::new((0, String::new())),
             data_dir,
+            save_lock: Mutex::new(()),
         });
 
         for st in saved.torrents {
@@ -155,19 +144,8 @@ impl Session {
             s.torrents.lock().unwrap().push(t);
         }
 
-        for l in listeners {
-            let s2 = s.clone();
-            tokio::spawn(async move {
-                loop {
-                    let Ok((stream, addr)) = l.accept().await else {
-                        sleep(Duration::from_millis(50)).await;
-                        continue;
-                    };
-                    let s3 = s2.clone();
-                    tokio::spawn(async move { s3.handle_incoming(stream, addr).await });
-                }
-            });
-        }
+        tokio::spawn(s.ctx.network.clone().monitor());
+        tokio::spawn(s.clone().network_loop());
 
         let s2 = s.clone();
         tokio::spawn(async move {
@@ -203,6 +181,51 @@ impl Session {
             }
         });
         s
+    }
+
+    async fn network_loop(self: Arc<Self>) {
+        let mut routes = self.ctx.network.subscribe();
+        loop {
+            let route = routes.borrow_and_update().clone();
+            let mut listeners = Vec::new();
+            let mut port = 0;
+            if route.ready() {
+                for p in 6881..=6999u16 {
+                    for v6 in [false, true] {
+                        if let Ok(listener) = route.listen(v6, p) {
+                            listeners.push(listener);
+                        }
+                    }
+                    if !listeners.is_empty() { port = p; break; }
+                }
+            }
+            self.ctx.port.store(port, Ordering::Relaxed);
+            let mut tasks = JoinSet::new();
+            for listener in listeners {
+                let session = self.clone();
+                tasks.spawn(async move {
+                    let mut incoming = JoinSet::new();
+                    loop {
+                        tokio::select! {
+                            result = listener.accept() => {
+                                if let Ok((stream, addr)) = result {
+                                    let session = session.clone();
+                                    incoming.spawn(async move { session.handle_incoming(stream, addr).await });
+                                } else { sleep(Duration::from_millis(50)).await; }
+                            }
+                            Some(_) = incoming.join_next(), if !incoming.is_empty() => {}
+                        }
+                    }
+                });
+            }
+            if port == 0 && route.ready() {
+                tokio::select! { _ = routes.changed() => {}, _ = sleep(Duration::from_secs(2)) => {} }
+            } else {
+                let _ = routes.changed().await;
+            }
+            tasks.shutdown().await;
+            self.ctx.port.store(0, Ordering::Relaxed);
+        }
     }
 
     /// Distingue conexiones en claro de las cifradas (MSE) y las entrega al torrent correspondiente.
@@ -267,6 +290,11 @@ impl Session {
     }
 
     pub fn save(&self) {
+        let _ = self.save_checked();
+    }
+
+    fn save_checked(&self) -> std::io::Result<()> {
+        let _save = self.save_lock.lock().unwrap();
         let list = self.torrents.lock().unwrap().clone();
         let mut torrents = Vec::new();
         for t in list {
@@ -290,6 +318,7 @@ impl Session {
             });
         }
         let st = SavedState {
+            network: self.ctx.network.current().config.clone(),
             default_dir: Some(self.default_dir.lock().unwrap().to_string_lossy().into_owned()),
             down_kbs: self.ctx.down.get() / 1024,
             up_kbs: self.ctx.up.get() / 1024,
@@ -297,12 +326,10 @@ impl Session {
             clipboard: self.clipboard.load(Ordering::Relaxed),
             torrents,
         };
-        if let Ok(json) = serde_json::to_vec_pretty(&st) {
-            let tmp = self.data_dir.join("state.json.tmp");
-            if std::fs::write(&tmp, json).is_ok() {
-                let _ = std::fs::rename(&tmp, self.data_dir.join("state.json"));
-            }
-        }
+        let json = serde_json::to_vec_pretty(&st)?;
+        let tmp = self.data_dir.join("state.json.tmp");
+        std::fs::write(&tmp, json)?;
+        std::fs::rename(&tmp, self.data_dir.join("state.json"))
     }
 
     fn resolve_dir(&self, dir: Option<String>) -> PathBuf {
@@ -385,7 +412,7 @@ impl Session {
         true
     }
 
-    pub fn set_limits(&self, down_kbs: Option<u64>, up_kbs: Option<u64>, encryption: Option<u8>) {
+    pub fn set_limits(&self, down_kbs: Option<u64>, up_kbs: Option<u64>, encryption: Option<u8>) -> std::io::Result<()> {
         if let Some(v) = down_kbs {
             self.ctx.down.set(v.min(1 << 30) * 1024);
         }
@@ -395,7 +422,7 @@ impl Session {
         if let Some(v) = encryption {
             self.ctx.encryption.store(v.min(2), Ordering::Relaxed);
         }
-        self.save();
+        self.save_checked()
     }
 
     pub fn list(&self) -> Vec<serde_json::Value> {
@@ -437,5 +464,25 @@ impl Session {
 
     pub fn port(&self) -> u16 {
         self.ctx.port.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod network_state_tests {
+    use super::*;
+
+    #[test]
+    fn old_state_loads_without_network_settings() {
+        let saved: SavedState = serde_json::from_str(r#"{"default_dir":null,"torrents":[]}"#).unwrap();
+        assert!(saved.network.interface.is_empty());
+    }
+
+    #[test]
+    fn corrupt_state_is_an_error_instead_of_unrestricted_defaults() {
+        let path = std::env::temp_dir().join(format!("huillin-network-state-{}.json", hex::encode(rand::random::<[u8; 16]>())));
+        assert!(load_state(&path).unwrap().network.interface.is_empty());
+        std::fs::write(&path, br#"{"network":{"interface":"vpn","dns":"broken"},"torrents":[]}"#).unwrap();
+        assert!(load_state(&path).is_err());
+        std::fs::remove_file(path).unwrap();
     }
 }

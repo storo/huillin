@@ -213,6 +213,7 @@
   .status b { color: var(--text); font-weight: 600; }
   .status .grow { flex: 1; }
   .status .lim { opacity: .7; }
+  #stNetwork { min-width: 0; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; flex-shrink: 1; }
   @media (max-width: 860px) { .status .lim { display: none; } .status { gap: 12px; } }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
   .dot.off { background: var(--err); box-shadow: 0 0 0 3px var(--err-soft); }
@@ -413,6 +414,7 @@
   <button class="it" id="stUp" title="Ajustar límite de subida"></button>
   <span class="grow"></span>
   <button class="it" id="updateNotice" hidden title="Ver actualización en Ajustes">Nueva versión disponible</button>
+  <button class="it" id="stNetwork" title="Configurar interfaz de red">Red: sin restricción</button>
   <span class="opt" id="stEnc"></span>
   <span class="opt">Puerto <b id="stPort" class="num">–</b></span>
 </footer>
@@ -469,6 +471,13 @@
       </div>
       <p class="hint">Se comprueba al abrir Huillín. La descarga e instalación son manuales.</p>
     </section>
+    <div class="field"><label for="setInterface">Interfaz de red / VPN</label>
+      <select class="input" id="setInterface"><option value="">Cualquier interfaz (sin restricción)</option></select></div>
+    <p class="hint">Selecciona el adaptador de tu VPN instalada. Huillín usará solo esa interfaz y bloqueará el tráfico si falta. No inicia ni configura el túnel VPN.</p>
+    <div class="field"><label for="setDns">Servidor DNS mediante esa interfaz (dirección IP)</label>
+      <input class="input" id="setDns" type="text" autocomplete="off" spellcheck="false" placeholder="1.1.1.1"></div>
+    <p class="hint">Predeterminado: Cloudflare (1.1.1.1). Puedes usar el DNS de tu VPN. Sin consultas al DNS del sistema en modo restringido. Los cambios se aplican al guardar.</p>
+    <p class="hint" id="setNetworkStatus" role="status"></p>
     <menu>
       <button class="btn" type="button" id="setCancel">Cancelar</button>
       <button class="btn primary" type="submit">Guardar</button>
@@ -1010,18 +1019,39 @@ async function checkUpdates() {
 $('checkUpdates').onclick = checkUpdates;
 $('downloadUpdate').onclick = () => api('/api/updates/open').catch(e => toast(e.message, 'err'));
 $('updateNotice').onclick = openSettings;
-function openSettings() {
+async function openSettings() {
   const d = app.data || {};
   $('setDir').value = d.default_dir || ''; $('setDown').value = d.down_kbs || 0; $('setUp').value = d.up_kbs || 0;
   $('setEnc').value = d.encryption ?? 1; $('setClip').checked = !!d.clipboard;
+  const net = d.network || { interface: '', dns: '1.1.1.1' };
+  const select = $('setInterface');
+  select.replaceChildren(new Option('Cualquier interfaz (sin restricción)', ''));
+  if (net.interface) select.add(new Option(net.interface, net.interface));
+  select.value = net.interface;
+  $('setDns').value = net.dns; $('setDns').disabled = !net.interface;
+  $('setNetworkStatus').textContent = net.error || (net.interface ? 'Tráfico restringido a ' + net.interface : 'Red sin restricción');
   $('dlgSettings').showModal(); $('setDown').select();
+  try {
+    const result = await api('/api/network', { method: 'GET' });
+    if (!$('dlgSettings').open) return;
+    const selected = select.value;
+    select.replaceChildren(new Option('Cualquier interfaz (sin restricción)', ''));
+    for (const adapter of result.interfaces) {
+      select.add(new Option(adapter.name + (adapter.addresses.length ? ' · ' + adapter.addresses.join(', ') : ' · sin dirección'), adapter.name));
+    }
+    if (selected && !result.interfaces.some(a => a.name === selected)) select.add(new Option(selected + ' · no disponible (bloqueado)', selected));
+    select.value = selected;
+  } catch (e) { $('setNetworkStatus').textContent = 'No se pudieron consultar las interfaces: ' + e.message; }
 }
-$('settingsBtn').onclick = openSettings; $('stDown').onclick = openSettings; $('stUp').onclick = openSettings;
+$('settingsBtn').onclick = openSettings; $('stDown').onclick = openSettings; $('stUp').onclick = openSettings; $('stNetwork').onclick = openSettings;
+$('setInterface').onchange = () => { $('setDns').disabled = !$('setInterface').value; };
 $('setCancel').onclick = () => $('dlgSettings').close();
-$('setForm').onsubmit = async () => {
+$('setForm').onsubmit = async e => {
+  e.preventDefault();
   const n = v => Math.max(0, parseInt(v, 10) || 0);
   try {
-    await api('/api/settings', json({ dir: $('setDir').value.trim() || undefined, down_kbs: n($('setDown').value), up_kbs: n($('setUp').value), encryption: +$('setEnc').value, clipboard: $('setClip').checked }));
+    await api('/api/settings', json({ dir: $('setDir').value.trim() || undefined, down_kbs: n($('setDown').value), up_kbs: n($('setUp').value), encryption: +$('setEnc').value, clipboard: $('setClip').checked, network: { interface: $('setInterface').value, dns: $('setDns').value.trim() || '1.1.1.1' } }));
+    $('dlgSettings').close();
     toast('Ajustes guardados', 'ok');
   } catch (e) { toast(e.message, 'err'); }
   refresh();
@@ -1133,6 +1163,10 @@ function setOnline(on) {
 const lim = k => k > 0 ? nf(k, 0) + ' KB/s' : 'sin límite';
 function renderStatus(d) {
   $('appVersion').textContent = d.version || '';
+  const net = d.network || {};
+  $('stNetwork').textContent = net.status === 'blocked' ? 'Red bloqueada · esperando interfaz' : net.interface ? 'Solo: ' + net.interface : 'Red: sin restricción';
+  $('stNetwork').title = net.error || (net.interface ? 'Tráfico restringido a ' + net.interface + '. La disponibilidad del túnel depende de tu VPN.' : 'Configurar interfaz de red / VPN');
+  $('stNetwork').style.color = net.status === 'blocked' ? 'var(--red, #d9534f)' : '';
   $('stDown').innerHTML = `${ic('down')}<span>${rate(d.down)} <span class="lim">· límite ${lim(d.down_kbs)}</span></span>`;
   $('stUp').innerHTML = `${ic('up')}<span>${rate(d.up)} <span class="lim">· límite ${lim(d.up_kbs)}</span></span>`;
   $('stPort').textContent = d.port || 'cerrado';

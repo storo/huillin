@@ -10,6 +10,8 @@ mod dht;
 mod meta;
 #[path = "../src/mse.rs"]
 mod mse;
+#[path = "../src/network.rs"]
+mod network;
 #[path = "../src/ratelimit.rs"]
 mod ratelimit;
 #[path = "../src/session.rs"]

@@ -3,6 +3,7 @@ use crate::bencode::{self, Value};
 use crate::dht::Dht;
 use crate::meta::Meta;
 use crate::mse::{self, Crypt, Rc4};
+use crate::network::{AbortOnDrop, Network, Route};
 use crate::ratelimit::Limiter;
 use crate::storage::Storage;
 use crate::tracker::{self, Event, Stats};
@@ -28,7 +29,7 @@ const MAX_ACTIVE: usize = 60;
 pub struct Ctx {
     pub peer_id: [u8; 20],
     pub port: AtomicU16,
-    pub dht: Vec<Arc<Dht>>,
+    pub network: Arc<Network>,
     pub down: Limiter,
     pub up: Limiter,
     /// 0 = sin cifrado, 1 = preferir cifrado (con alternativa en claro), 2 = exigir cifrado
@@ -498,7 +499,7 @@ impl Torrent {
             return;
         }
         self.lock().paused = false;
-        *r = Some(tokio::spawn(self.clone().run()));
+        *r = Some(tokio::spawn(self.clone().run_supervised()));
     }
 
     pub fn pause(&self) {
@@ -640,16 +641,28 @@ impl Torrent {
 
     // ---------- bucle principal ----------
 
-    async fn run(self: Arc<Self>) {
+    async fn run_supervised(self: Arc<Self>) {
+        let mut routes = self.ctx.network.subscribe();
+        loop {
+            let route = routes.borrow_and_update().clone();
+            if route.ready() {
+                self.clone().run(route, &mut routes).await;
+            } else if routes.changed().await.is_err() {
+                return;
+            }
+        }
+    }
+
+    async fn run(self: Arc<Self>, route: Arc<Route>, routes: &mut tokio::sync::watch::Receiver<Arc<Route>>) {
         let (peer_tx, mut peer_rx) = mpsc::unbounded_channel::<SocketAddr>();
         let (inc_tx, mut inc_rx) = mpsc::unbounded_channel::<Incoming>();
         *self.incoming_tx.lock().unwrap() = Some(inc_tx);
         let mut tasks: JoinSet<()> = JoinSet::new();
         let trackers = self.lock().trackers.clone();
         for url in trackers {
-            tasks.spawn(self.clone().tracker_loop(url, peer_tx.clone()));
+            tasks.spawn(self.clone().tracker_loop(url, peer_tx.clone(), route.clone()));
         }
-        tasks.spawn(self.clone().dht_loop(peer_tx.clone()));
+        tasks.spawn(self.clone().dht_loop(peer_tx.clone(), route.clone()));
 
         let mut tick = interval(Duration::from_secs(1));
         let mut cand: VecDeque<SocketAddr> = VecDeque::new();
@@ -657,6 +670,21 @@ impl Torrent {
         let mut n = 0u64;
         loop {
             tokio::select! {
+                biased;
+                _ = routes.changed() => {
+                    *self.incoming_tx.lock().unwrap() = None;
+                    tasks.shutdown().await;
+                    let mut g = self.lock();
+                    g.peers.clear();
+                    g.active.clear();
+                    g.partial.clear();
+                    g.verifying.clear();
+                    g.avail.fill(0);
+                    g.down_rate = 0.0;
+                    g.up_rate = 0.0;
+                    if g.state == State::Checking { g.checked = false; }
+                    return;
+                }
                 _ = tick.tick() => {
                     n += 1;
                     let (d, u) = (self.downloaded.load(Ordering::Relaxed), self.uploaded.load(Ordering::Relaxed));
@@ -701,7 +729,7 @@ impl Torrent {
                         tasks.spawn(self.clone().do_check());
                     }
                     for a in to_connect {
-                        tasks.spawn(self.clone().peer_connect(a));
+                        tasks.spawn(self.clone().peer_connect(a, route.clone()));
                     }
                 }
                 Some(a) = peer_rx.recv() => {
@@ -772,7 +800,7 @@ impl Torrent {
 
     // ---------- descubrimiento de peers ----------
 
-    async fn tracker_loop(self: Arc<Self>, url: String, out: UnboundedSender<SocketAddr>) {
+    async fn tracker_loop(self: Arc<Self>, url: String, out: UnboundedSender<SocketAddr>, route: Arc<Route>) {
         let mut event = Event::Started;
         loop {
             let (left, up, down) = {
@@ -789,7 +817,7 @@ impl Torrent {
                 left,
                 event,
             };
-            match tracker::announce(&url, &stats).await {
+            match tracker::announce(&url, &stats, &route).await {
                 Ok((interval, peers)) => {
                     peers.into_iter().for_each(|p| {
                         let _ = out.send(p);
@@ -802,16 +830,28 @@ impl Torrent {
         }
     }
 
-    async fn dht_loop(self: Arc<Self>, out: UnboundedSender<SocketAddr>) {
-        if self.ctx.dht.is_empty() {
+    async fn dht_loop(self: Arc<Self>, out: UnboundedSender<SocketAddr>, route: Arc<Route>) {
+        if self.lock().meta.as_ref().is_some_and(|m| m.private) {
+            return;
+        }
+        let mut dhts = Vec::new();
+        let mut receivers = Vec::new();
+        for v6 in [false, true] {
+            if let Ok((dht, receiver)) = Dht::start(v6, route.clone()).await {
+                dhts.push(dht);
+                receivers.push(receiver);
+            }
+        }
+        if dhts.is_empty() {
             return;
         }
         loop {
-            if self.lock().meta.as_ref().map_or(false, |m| m.private) {
+            if self.lock().meta.as_ref().is_some_and(|m| m.private) {
                 return;
             }
             let mut set = JoinSet::new();
-            for dht in self.ctx.dht.iter().cloned() {
+            for dht in &dhts {
+                let dht = dht.clone();
                 let (ih, out) = (self.info_hash, out.clone());
                 set.spawn(async move { dht.get_peers(ih, out, Duration::from_secs(30)).await });
             }
@@ -823,15 +863,15 @@ impl Torrent {
 
     // ---------- conexiones ----------
 
-    async fn peer_connect(self: Arc<Self>, addr: SocketAddr) {
+    async fn peer_connect(self: Arc<Self>, addr: SocketAddr, route: Arc<Route>) {
         let Some(_ag) = AddrGuard::claim(&self, addr) else { return };
         let mode = self.ctx.encryption.load(Ordering::Relaxed);
         let mut res = None;
         if mode != 0 {
-            res = self.dial(addr, true).await;
+            res = self.dial(addr, true, &route).await;
         }
         if res.is_none() && mode != 2 {
-            res = self.dial(addr, false).await;
+            res = self.dial(addr, false, &route).await;
         }
         if let Some((s, reserved, crypt)) = res {
             self.run_peer(s, reserved, crypt).await;
@@ -839,8 +879,8 @@ impl Torrent {
     }
 
     /// Conecta y completa el handshake, con o sin cifrado de protocolo.
-    async fn dial(&self, addr: SocketAddr, encrypted: bool) -> Option<(TcpStream, [u8; 8], Option<Crypt>)> {
-        let mut s = timeout(Duration::from_secs(8), TcpStream::connect(addr)).await.ok()?.ok()?;
+    async fn dial(&self, addr: SocketAddr, encrypted: bool, route: &Route) -> Option<(TcpStream, [u8; 8], Option<Crypt>)> {
+        let mut s = timeout(Duration::from_secs(8), route.connect(addr)).await.ok()?.ok()?;
         let mut crypt = if encrypted {
             Some(timeout(Duration::from_secs(15), mse::initiate(&mut s, &self.info_hash)).await.ok()?.ok()?)
         } else {
@@ -883,7 +923,7 @@ impl Torrent {
             None => (None, None),
         };
         // Un único escritor: el orden de los bytes importa para el flujo RC4.
-        tokio::spawn(async move {
+        let _writer = AbortOnDrop(tokio::spawn(async move {
             while let Some(mut f) = rx.recv().await {
                 if let Some(e) = &mut enc {
                     e.apply(&mut f);
@@ -892,7 +932,7 @@ impl Torrent {
                     break;
                 }
             }
-        });
+        }));
         let supports_ext = reserved[5] & 0x10 != 0;
         let pid = {
             let mut g = self.lock();
@@ -1153,5 +1193,63 @@ impl Torrent {
             _ => {}
         }
         Some(())
+    }
+}
+
+#[cfg(test)]
+mod network_tests {
+    use super::*;
+    use crate::network::Config;
+    use tokio::net::TcpListener;
+
+    #[tokio::test]
+    async fn changing_interface_closes_existing_peers_and_keeps_pause_state() {
+        let network = Network::new(Config::default());
+        let ctx = Arc::new(Ctx {
+            network: network.clone(), peer_id: [7; 20], port: AtomicU16::new(0),
+            down: Limiter::new(), up: Limiter::new(), encryption: AtomicU8::new(0),
+        });
+        // Private empty metadata keeps this test entirely on loopback (no DHT/DNS).
+        let meta = Meta {
+            info_raw: Vec::new(), info_hash: [8; 20], name: "network-test".into(),
+            piece_length: 16384, hashes: Vec::new(), files: Vec::new(),
+            multi: false, private: true, length: 0,
+        };
+        let torrent = Torrent::new(ctx, [8; 20], Some(meta), "network-test".into(), Vec::new(),
+            PathBuf::from("."), true, HashSet::new());
+        torrent.lock().checked = true;
+        torrent.start();
+        timeout(Duration::from_secs(2), async {
+            while torrent.incoming_tx.lock().unwrap().is_none() { tokio::task::yield_now().await; }
+        }).await.unwrap();
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap()).await.unwrap();
+        let (mut remote, addr) = listener.accept().await.unwrap();
+        // Incoming plaintext handshake. The peer writer sends its own handshake first.
+        torrent.incoming_tx.lock().unwrap().as_ref().unwrap().send(Incoming {
+            stream: client, addr, reserved: [0; 8], crypt: None,
+        }).unwrap();
+        let mut handshake = [0; 68];
+        timeout(Duration::from_secs(2), remote.read_exact(&mut handshake)).await.unwrap().unwrap();
+        assert_eq!(&handshake[..20], &HEADER);
+
+        network.configure(Config { interface: "huillin-test-missing-interface".into(), ..Config::default() }).unwrap();
+        timeout(Duration::from_secs(2), async {
+            while torrent.incoming_tx.lock().unwrap().is_some() { tokio::task::yield_now().await; }
+        }).await.unwrap();
+        let mut rest = Vec::new();
+        timeout(Duration::from_secs(2), remote.read_to_end(&mut rest)).await.unwrap().unwrap();
+        assert!(!torrent.lock().paused);
+        network.configure(Config::default()).unwrap();
+        timeout(Duration::from_secs(2), async {
+            while torrent.incoming_tx.lock().unwrap().is_none() { tokio::task::yield_now().await; }
+        }).await.unwrap();
+        torrent.pause();
+        network.configure(Config { interface: "huillin-test-missing-interface".into(), ..Config::default() }).unwrap();
+        network.configure(Config::default()).unwrap();
+        tokio::task::yield_now().await;
+        assert!(torrent.lock().paused);
+        assert!(torrent.runner.lock().unwrap().is_none());
     }
 }

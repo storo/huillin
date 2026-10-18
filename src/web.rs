@@ -46,6 +46,7 @@ pub fn router(s: Arc<Session>) -> Router {
         .route("/api/settings", post(settings))
         .route("/api/updates/check", post(check_updates))
         .route("/api/updates/open", post(open_updates))
+        .route("/api/network", get(network))
         .route("/api/t/{id}/files", get(files_get).post(files_set))
         .route("/api/t/{id}/{action}", post(action))
         .layer(axum::extract::DefaultBodyLimit::max(32 << 20))
@@ -79,20 +80,43 @@ async fn list(State(s): State<Arc<Session>>) -> Json<Value> {
         "down_kbs": s.ctx.down.get() / 1024, "up_kbs": s.ctx.up.get() / 1024,
         "encryption": s.ctx.encryption.load(std::sync::atomic::Ordering::Relaxed),
         "clipboard": s.clipboard.load(std::sync::atomic::Ordering::Relaxed),
+        "network": network_status(&s),
         "clip": { "n": clip.0, "name": clip.1 },
     }))
 }
 
-async fn check_updates() -> Res {
-    crate::updates::check().await
-        .map(|info| Json(json!(info)))
-        .map_err(|error| (StatusCode::BAD_GATEWAY, Json(json!({ "error": error }))))
+async fn check_updates(State(s): State<Arc<Session>>) -> Res {
+    let mut routes = s.ctx.network.subscribe();
+    if !routes.borrow_and_update().config.interface.is_empty() {
+        return Err(bad("La consulta de actualizaciones está deshabilitada mientras se restringe la interfaz de red."));
+    }
+    tokio::select! {
+        biased;
+        _ = routes.changed() => Err(bad("Consulta de actualizaciones cancelada por un cambio de interfaz.")),
+        result = crate::updates::check() => result
+            .map(|info| Json(json!(info)))
+            .map_err(|error| (StatusCode::BAD_GATEWAY, Json(json!({ "error": error })))),
+    }
 }
 
 async fn open_updates() -> Res {
     crate::updates::open_download_page()
         .map(|_| Json(json!({ "ok": true })))
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": "No se pudo abrir el navegador." }))))
+}
+
+fn network_status(s: &Session) -> Value {
+    let route = s.ctx.network.current();
+    json!({
+        "interface": route.config.interface, "dns": route.config.dns,
+        "status": if !route.ready() { "blocked" } else if route.config.interface.is_empty() { "unrestricted" } else { "restricted" },
+        "error": route.error,
+    })
+}
+
+async fn network(State(s): State<Arc<Session>>) -> Res {
+    let interfaces = crate::network::interfaces().map_err(bad)?;
+    Ok(Json(json!({ "interfaces": interfaces, "network": network_status(&s) })))
 }
 
 #[derive(Deserialize)]
@@ -116,6 +140,7 @@ async fn add_file(State(s): State<Arc<Session>>, Query(q): Query<DirQ>, body: By
 
 #[derive(Deserialize)]
 struct SettingsReq {
+    network: Option<crate::network::Config>,
     dir: Option<String>,
     down_kbs: Option<u64>,
     up_kbs: Option<u64>,
@@ -124,19 +149,26 @@ struct SettingsReq {
 }
 
 async fn settings(State(s): State<Arc<Session>>, Json(r): Json<SettingsReq>) -> Res {
+    if matches!(r.encryption, Some(e) if e > 2) {
+        return Err(bad("modo de cifrado inválido"));
+    }
+    if r.dir.as_ref().is_some_and(|dir| dir.trim().is_empty()) {
+        return Err(bad("carpeta vacía"));
+    }
+    if let Some(config) = r.network {
+        s.ctx.network.configure(config).map_err(bad)?;
+    }
     if let Some(dir) = r.dir {
         if dir.trim().is_empty() {
             return Err(bad("carpeta vacía"));
         }
         *s.default_dir.lock().unwrap() = dir.trim().into();
     }
-    if matches!(r.encryption, Some(e) if e > 2) {
-        return Err(bad("modo de cifrado inválido"));
-    }
     if let Some(c) = r.clipboard {
         s.clipboard.store(c, std::sync::atomic::Ordering::Relaxed);
     }
-    s.set_limits(r.down_kbs, r.up_kbs, r.encryption);
+    s.set_limits(r.down_kbs, r.up_kbs, r.encryption)
+        .map_err(|e| bad(format!("Los ajustes se aplicaron, pero no se pudieron guardar en disco: {e}")))?;
     Ok(Json(json!({ "ok": true })))
 }
 

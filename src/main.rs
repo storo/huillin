@@ -5,6 +5,7 @@ mod clipboard;
 mod dht;
 mod meta;
 mod mse;
+mod network;
 mod ratelimit;
 mod session;
 mod storage;
