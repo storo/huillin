@@ -1,4 +1,4 @@
-//! Lectura del portapapeles de texto (Windows, vía API nativa).
+//! Lectura del portapapeles de texto (API nativa en Windows; pbpaste, wl-paste o xclip en macOS/Linux).
 
 #[cfg(windows)]
 mod imp {
@@ -61,11 +61,35 @@ mod imp {
 
 #[cfg(not(windows))]
 mod imp {
-    pub fn sequence() -> u32 {
-        0
-    }
+    use std::process::{Command, Stdio};
+
+    /// Lee el portapapeles con la utilidad del sistema (pbpaste, wl-paste o xclip/xsel).
     pub fn text() -> Option<String> {
+        let candidates: &[(&str, &[&str])] = if cfg!(target_os = "macos") {
+            &[("pbpaste", &[])]
+        } else {
+            &[
+                ("wl-paste", &["--no-newline"]),
+                ("xclip", &["-selection", "clipboard", "-o"]),
+                ("xsel", &["--clipboard", "--output"]),
+            ]
+        };
+        for (cmd, args) in candidates {
+            if let Ok(out) = Command::new(cmd).args(*args).stdin(Stdio::null()).stderr(Stdio::null()).output() {
+                if out.status.success() {
+                    return Some(String::from_utf8_lossy(&out.stdout).into_owned());
+                }
+            }
+        }
         None
+    }
+
+    /// Sin contador nativo: huella del contenido actual (cambia al copiar algo nuevo).
+    pub fn sequence() -> u32 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        text().hash(&mut h);
+        h.finish() as u32
     }
 }
 

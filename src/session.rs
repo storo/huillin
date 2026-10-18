@@ -59,6 +59,25 @@ fn default_true() -> bool {
     true
 }
 
+fn home_dir() -> PathBuf {
+    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var(var).map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("."))
+}
+
+/// Carpeta de estado (en Windows se mantiene `%APPDATA%\RTorrent`).
+fn app_data_dir() -> PathBuf {
+    if cfg!(windows) {
+        std::env::var("APPDATA").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from(".")).join("RTorrent")
+    } else if cfg!(target_os = "macos") {
+        home_dir().join("Library/Application Support/Huillin")
+    } else {
+        std::env::var("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| home_dir().join(".local/share"))
+            .join("huillin")
+    }
+}
+
 impl Default for SavedState {
     fn default() -> Self {
         SavedState { default_dir: None, down_kbs: 0, up_kbs: 0, encryption: 1, clipboard: true, torrents: Vec::new() }
@@ -67,11 +86,9 @@ impl Default for SavedState {
 
 impl Session {
     pub async fn new() -> Arc<Session> {
-        let appdata = std::env::var("APPDATA").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from("."));
-        let data_dir = appdata.join("RTorrent");
+        let data_dir = app_data_dir();
         let _ = std::fs::create_dir_all(data_dir.join("torrents"));
-        let mut default_dir =
-            std::env::var("USERPROFILE").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from(".")).join("Downloads");
+        let mut default_dir = home_dir().join("Downloads");
 
         // Mismo puerto en IPv4 e IPv6 (en Windows son sockets separados).
         let mut listeners = Vec::new();
@@ -393,13 +410,29 @@ impl Session {
             .map(PathBuf::from)
             .filter(|p| p.exists())
             .unwrap_or_else(|| PathBuf::from(snap["save_dir"].as_str().unwrap_or(".")));
-        let mut cmd = std::process::Command::new("explorer");
-        if target.is_file() {
-            cmd.arg(format!("/select,{}", target.display()));
-        } else {
-            cmd.arg(&target);
+        #[cfg(windows)]
+        {
+            let mut cmd = std::process::Command::new("explorer");
+            if target.is_file() {
+                cmd.arg(format!("/select,{}", target.display()));
+            } else {
+                cmd.arg(&target);
+            }
+            cmd.spawn().is_ok()
         }
-        cmd.spawn().is_ok()
+        #[cfg(target_os = "macos")]
+        {
+            let mut cmd = std::process::Command::new("open");
+            if target.is_file() {
+                cmd.arg("-R");
+            }
+            cmd.arg(&target).spawn().is_ok()
+        }
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            let dir = if target.is_file() { target.parent().map(PathBuf::from).unwrap_or(target) } else { target };
+            std::process::Command::new("xdg-open").arg(dir).spawn().is_ok()
+        }
     }
 
     pub fn port(&self) -> u16 {
