@@ -37,7 +37,7 @@ async fn guard(req: Request, next: Next) -> Response {
 
 pub fn router(s: Arc<Session>) -> Router {
     Router::new()
-        .route("/", get(|| async { Html(include_str!("../ui/index.html")) }))
+        .route("/", get(index))
         .route("/logo.png", get(|| png(include_bytes!("../ui/logo.png"))))
         .route("/favicon.png", get(|| png(include_bytes!("../ui/favicon.png"))))
         .route("/api/torrents", get(list))
@@ -51,6 +51,16 @@ pub fn router(s: Arc<Session>) -> Router {
         .layer(axum::extract::DefaultBodyLimit::max(32 << 20))
         .layer(middleware::from_fn(guard))
         .with_state(s)
+}
+
+async fn index() -> Html<String> {
+    let license = include_str!("../LICENSE")
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    Html(include_str!("../ui/index.html")
+        .replace("__HUILLIN_VERSION__", env!("CARGO_PKG_VERSION"))
+        .replace("__HUILLIN_LICENSE__", &license))
 }
 
 async fn png(bytes: &'static [u8]) -> impl IntoResponse {
