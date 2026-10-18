@@ -20,6 +20,8 @@ mod storage;
 mod torrent;
 #[path = "../src/tracker.rs"]
 mod tracker;
+#[path = "../src/updates.rs"]
+mod updates;
 #[path = "../src/web.rs"]
 mod web;
 

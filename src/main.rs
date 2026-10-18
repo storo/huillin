@@ -10,6 +10,7 @@ mod session;
 mod storage;
 mod torrent;
 mod tracker;
+mod updates;
 mod web;
 
 use std::io::{BufRead, BufReader, Write};

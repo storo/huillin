@@ -44,6 +44,8 @@ pub fn router(s: Arc<Session>) -> Router {
         .route("/api/magnet", post(magnet))
         .route("/api/add", post(add_file))
         .route("/api/settings", post(settings))
+        .route("/api/updates/check", post(check_updates))
+        .route("/api/updates/open", post(open_updates))
         .route("/api/t/{id}/files", get(files_get).post(files_set))
         .route("/api/t/{id}/{action}", post(action))
         .layer(axum::extract::DefaultBodyLimit::max(32 << 20))
@@ -61,6 +63,7 @@ async fn list(State(s): State<Arc<Session>>) -> Json<Value> {
     let up: f64 = torrents.iter().filter_map(|t| t["up"].as_f64()).sum();
     let clip = s.clip_event.lock().unwrap().clone();
     Json(json!({
+        "version": crate::updates::CURRENT_VERSION,
         "torrents": torrents, "down": down, "up": up, "port": s.port(),
         "default_dir": s.default_dir.lock().unwrap().to_string_lossy(),
         "down_kbs": s.ctx.down.get() / 1024, "up_kbs": s.ctx.up.get() / 1024,
@@ -68,6 +71,18 @@ async fn list(State(s): State<Arc<Session>>) -> Json<Value> {
         "clipboard": s.clipboard.load(std::sync::atomic::Ordering::Relaxed),
         "clip": { "n": clip.0, "name": clip.1 },
     }))
+}
+
+async fn check_updates() -> Res {
+    crate::updates::check().await
+        .map(|info| Json(json!(info)))
+        .map_err(|error| (StatusCode::BAD_GATEWAY, Json(json!({ "error": error }))))
+}
+
+async fn open_updates() -> Res {
+    crate::updates::open_download_page()
+        .map(|_| Json(json!({ "ok": true })))
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": "No se pudo abrir el navegador." }))))
 }
 
 #[derive(Deserialize)]

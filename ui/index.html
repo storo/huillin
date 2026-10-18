@@ -227,6 +227,11 @@
   dialog menu { display: flex; gap: 8px; justify-content: flex-end; margin: 4px 0 0; padding: 0; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .hint { font-size: 12px; color: var(--muted); margin: -2px 0 0; }
+  .updates { border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 9px; }
+  .updates p { margin: 0; }
+  .update-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  #updateNotice { color: var(--accent); }
+  #updateNotice[hidden], #downloadUpdate[hidden] { display: none; }
 
   #ctx { position: fixed; z-index: 50; min-width: 200px; padding: 5px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
   #ctx[hidden] { display: none; }
@@ -392,6 +397,7 @@
   <button class="it" id="stDown" title="Ajustar límite de bajada"></button>
   <button class="it" id="stUp" title="Ajustar límite de subida"></button>
   <span class="grow"></span>
+  <button class="it" id="updateNotice" hidden title="Ver actualización en Ajustes">Nueva versión disponible</button>
   <span class="opt" id="stEnc"></span>
   <span class="opt">Puerto <b id="stPort" class="num">–</b></span>
 </footer>
@@ -439,6 +445,15 @@
     <div class="field"><label for="setEnc">Cifrado de conexiones</label>
       <select class="input" id="setEnc"><option value="0">Desactivado</option><option value="1">Preferido</option><option value="2">Obligatorio</option></select></div>
     <label class="check"><input type="checkbox" id="setClip"> Añadir automáticamente los magnets que copie</label>
+    <section class="updates" aria-label="Actualizaciones">
+      <strong>Huillín <span id="appVersion"></span></strong>
+      <p id="updateStatus" role="status" aria-live="polite">Buscando actualizaciones…</p>
+      <div class="update-actions">
+        <button class="btn sm" type="button" id="checkUpdates">Buscar actualizaciones</button>
+        <button class="btn primary sm" type="button" id="downloadUpdate" hidden>Descargar nueva versión</button>
+      </div>
+      <p class="hint">Se comprueba al abrir Huillín. La descarga e instalación son manuales.</p>
+    </section>
     <menu>
       <button class="btn" type="button" id="setCancel">Cancelar</button>
       <button class="btn primary" type="submit">Guardar</button>
@@ -921,6 +936,31 @@ async function addFiles(files, dir) {
 $('file').onchange = e => { addFiles([...e.target.files], $('dlgAdd').open ? $('addDir').value.trim() : undefined); e.target.value = ''; };
 
 // ---------- ajustes ----------
+let checkingUpdates = false;
+async function checkUpdates() {
+  if (checkingUpdates) return;
+  checkingUpdates = true;
+  $('checkUpdates').disabled = true;
+  $('updateStatus').textContent = 'Buscando actualizaciones…';
+  try {
+    const d = await api('/api/updates/check');
+    $('appVersion').textContent = d.current_version;
+    $('downloadUpdate').hidden = !d.available;
+    $('updateNotice').hidden = !d.available;
+    $('updateStatus').textContent = d.available
+      ? `Hay una nueva versión disponible: ${d.latest_version}.`
+      : 'Tu versión está al día.';
+    if (d.available) toast(`Huillín ${d.latest_version} disponible. Puedes descargarlo desde Ajustes.`, 'ok');
+  } catch (e) {
+    $('updateStatus').textContent = e.message;
+  } finally {
+    checkingUpdates = false;
+    $('checkUpdates').disabled = false;
+  }
+}
+$('checkUpdates').onclick = checkUpdates;
+$('downloadUpdate').onclick = () => api('/api/updates/open').catch(e => toast(e.message, 'err'));
+$('updateNotice').onclick = openSettings;
 function openSettings() {
   const d = app.data || {};
   $('setDir').value = d.default_dir || ''; $('setDown').value = d.down_kbs || 0; $('setUp').value = d.up_kbs || 0;
@@ -1043,6 +1083,7 @@ function setOnline(on) {
 }
 const lim = k => k > 0 ? nf(k, 0) + ' KB/s' : 'sin límite';
 function renderStatus(d) {
+  $('appVersion').textContent = d.version || '';
   $('stDown').innerHTML = `${ic('down')}<span>${rate(d.down)} <span class="lim">· límite ${lim(d.down_kbs)}</span></span>`;
   $('stUp').innerHTML = `${ic('up')}<span>${rate(d.up)} <span class="lim">· límite ${lim(d.up_kbs)}</span></span>`;
   $('stPort').textContent = d.port || 'cerrado';
@@ -1070,6 +1111,7 @@ async function refresh() {
 }
 
 refresh(); setInterval(refresh, 1000);
+checkUpdates();
 </script>
 </body>
 </html>
